@@ -8,12 +8,15 @@ import {
   createServerNode,
   deleteServerNode,
   ensureServerFleetSchema,
+  getClusterAutomationSettings,
   getFleetLiveStatus,
   getNodeConnectivityLogs,
   getServerNodeById,
+  linkRemoteUbuntuNodeViaSsh,
   listServerNodes,
   probeFleetBatch,
   probeServerConnectivity,
+  setClusterAutomationSettings,
   updateServerNode
 } from './serverFleetService.js';
 import {
@@ -70,9 +73,11 @@ function handleRouteError(res, err, fallbackMessage) {
 
 export function createAdminServerFleetRouter({
   requireAdmin = createFallbackRequireAdmin(),
+  requirePermission = () => (_req, _res, next) => next(),
   requireRecentReauth = defaultRequireRecentReauth
 } = {}) {
   const router = express.Router();
+  const requireManageServers = requirePermission('manage_servers');
 
   // Best-effort idempotent schema bootstrap (falls back gracefully when PG is inactive).
   ensureServerFleetSchema().catch((err) => {
@@ -82,7 +87,7 @@ export function createAdminServerFleetRouter({
     console.warn('[Admin Ubuntu Tenant Schema Warning]', err?.message || err);
   });
 
-  router.use((_req, res, next) => {
+  router.use(requireAdmin, requireManageServers, (_req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
@@ -93,6 +98,26 @@ export function createAdminServerFleetRouter({
       success: true,
       blueprints: PANEL_BLUEPRINTS
     });
+  });
+
+  // GET /api/admin/fleet/automation
+  router.get('/automation', requireAdmin, async (_req, res) => {
+    try {
+      const automation = await getClusterAutomationSettings();
+      return res.json({ success: true, automation });
+    } catch (err) {
+      return handleRouteError(res, err, 'Failed to load cluster automation settings.');
+    }
+  });
+
+  // PATCH /api/admin/fleet/automation
+  router.patch('/automation', requireAdmin, requireRecentReauth, async (req, res) => {
+    try {
+      const automation = await setClusterAutomationSettings(req.body || {}, req.adminUser?.id || null);
+      return res.json({ success: true, automation });
+    } catch (err) {
+      return handleRouteError(res, err, 'Failed to update cluster automation settings.');
+    }
   });
 
   // GET /api/admin/fleet/live-status
@@ -131,6 +156,19 @@ export function createAdminServerFleetRouter({
       });
     } catch (err) {
       return handleRouteError(res, err, 'Failed to create server node.');
+    }
+  });
+
+  // POST /api/admin/fleet/nodes/link-ssh
+  router.post('/nodes/link-ssh', requireAdmin, requireRecentReauth, async (req, res) => {
+    try {
+      const result = await linkRemoteUbuntuNodeViaSsh(req.body || {}, req.adminUser?.id || null);
+      return res.status(201).json({
+        success: true,
+        ...result
+      });
+    } catch (err) {
+      return handleRouteError(res, err, 'Failed to connect and onboard Ubuntu server via SSH.');
     }
   });
 
@@ -186,7 +224,7 @@ export function createAdminServerFleetRouter({
   });
 
   // POST /api/admin/fleet/nodes/:id/probe
-  router.post('/nodes/:id/probe', requireAdmin, async (req, res) => {
+  router.post('/nodes/:id/probe', requireAdmin, requireRecentReauth, async (req, res) => {
     try {
       const result = await probeServerConnectivity(req.params.id, req.adminUser?.id || null);
       if (!result) {
@@ -202,7 +240,7 @@ export function createAdminServerFleetRouter({
   });
 
   // POST /api/admin/fleet/probe-batch
-  router.post('/probe-batch', requireAdmin, async (req, res) => {
+  router.post('/probe-batch', requireAdmin, requireRecentReauth, async (req, res) => {
     try {
       const result = await probeFleetBatch(req.body || {}, req.adminUser?.id || null);
       return res.json({

@@ -5,6 +5,55 @@ import { getDeviceTrackingHeaders } from '../utils/deviceFingerprint';
 const manifests = new Map();
 const nativeFetch = (resource, options) => globalThis.fetch(resource, options);
 
+function dispatchSecurityChallengeEvent(initialChallenge = null) {
+  if (
+    typeof window === 'undefined' ||
+    typeof window.dispatchEvent !== 'function' ||
+    typeof CustomEvent !== 'function'
+  ) {
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (verified) => {
+      if (settled) return;
+      settled = true;
+      resolve(Boolean(verified));
+    };
+    const timeoutId = typeof window.setTimeout === 'function'
+      ? window.setTimeout(() => finish(false), 60_000)
+      : null;
+    window.dispatchEvent(
+      new CustomEvent('tiwlo:security-challenge', {
+        detail: {
+          challenge: initialChallenge,
+          resolve: (verified) => {
+            if (timeoutId !== null && typeof window.clearTimeout === 'function') {
+              window.clearTimeout(timeoutId);
+            }
+            finish(verified);
+          }
+        }
+      })
+    );
+  });
+}
+
+async function fetchWithChallengeRetry(resource, options) {
+  const response = await nativeFetch(resource, options);
+  if (response.status === 429 || response.status === 403) {
+    const cloned = response.clone();
+    const body = await cloned.json().catch(() => null);
+    if (body?.code === 'SHIELD_CHALLENGE_REQUIRED' && typeof window !== 'undefined') {
+      const solved = await dispatchSecurityChallengeEvent(body.challenge || null);
+      if (solved) {
+        return nativeFetch(resource, options);
+      }
+    }
+  }
+  return response;
+}
+
 async function operations(origin) {
   if (!manifests.has(origin)) {
     manifests.set(origin, nativeFetch(`${origin}/api/graphql`, {
@@ -42,16 +91,16 @@ export async function applicationFetch(resource, options = {}) {
       ...(options.headers instanceof Headers ? Object.fromEntries(options.headers.entries()) : (options.headers || {}))
     }
   };
-  if (typeof resource !== 'string' && !(resource instanceof URL)) return nativeFetch(resource, mergedOptions);
+  if (typeof resource !== 'string' && !(resource instanceof URL)) return fetchWithChallengeRetry(resource, mergedOptions);
   const url = new URL(resource, window.location.href);
   const ownOrigin = url.origin === window.location.origin || url.hostname === PLATFORM_DOMAIN || url.hostname.endsWith(`.${PLATFORM_DOMAIN}`);
   if (!ownOrigin || !url.pathname.startsWith('/api/') ||
       url.pathname.startsWith('/api/public/') ||
       ['/api/address-verification', '/api/login-location'].includes(url.pathname) ||
       /graphql|upload|attachment|download|export|backup|media\/|stream|\/tls\/|webhook/i.test(url.pathname) ||
-      (mergedOptions.body != null && typeof mergedOptions.body !== 'string')) return nativeFetch(resource, mergedOptions);
+      (mergedOptions.body != null && typeof mergedOptions.body !== 'string')) return fetchWithChallengeRetry(resource, mergedOptions);
   const method = (mergedOptions.method || 'GET').toUpperCase();
-  if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return nativeFetch(resource, mergedOptions);
+  if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return fetchWithChallengeRetry(resource, mergedOptions);
   const sensitiveAction = method === 'POST' && /^\/api\/(?:domains\/?|admin\/payment-gateways)$/.test(url.pathname) ||
     (method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/(?:domains\/[^/]+(?:\/provision)?|staff(?:\/[^/]+)?|store\/payment-providers\/[^/]+|admin\/users\/[^/]+(?:\/ban)?)$/.test(url.pathname) ||
     (method === 'PUT' || method === 'DELETE') && /^\/api\/admin\/users\/[^/]+$/.test(url.pathname) ||
@@ -76,7 +125,7 @@ export async function applicationFetch(resource, options = {}) {
   const input = { params, query: Object.fromEntries(url.searchParams), body: typeof mergedOptions.body === 'string' ? JSON.parse(mergedOptions.body) : {} };
   const headers = actionHeaders;
   headers.set('Content-Type', 'application/json');
-  const response = await nativeFetch(`${url.origin}/api/graphql`, {
+  const response = await fetchWithChallengeRetry(`${url.origin}/api/graphql`, {
     ...mergedOptions, method: 'POST', headers, credentials: mergedOptions.credentials || 'include',
     body: JSON.stringify({ query: `${method === 'GET' ? 'query' : 'mutation'} ApplicationRequest($input: ApplicationInput) { result: ${selected.field}(input: $input) { status body headers } }`, variables: { input } })
   });

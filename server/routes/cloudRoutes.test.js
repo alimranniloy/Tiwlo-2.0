@@ -185,14 +185,74 @@ test('droplets catalog exposes connected Ubuntu image and active region while ma
   const unavailableImages = data.images.filter((i) => !i.available);
   assert.equal(availableImages.length, 1);
   assert.equal(availableImages[0].id, 'ubuntu-24');
-  assert.equal(availableImages[0].runtimeImage, 'tiwlo-ubuntu-shared-runtime:24.04');
-  assert.ok(unavailableImages.some((i) => i.name === 'Debian 12'));
+  assert.equal(availableImages[0].iconUrl, '/os-icons/ubuntu.svg');
+  assert.equal(availableImages[0].runtimeImage, undefined);
+  assert.ok(unavailableImages.some((i) => i.name === 'Debian 12' && i.iconUrl === '/os-icons/debian.svg'));
 
   const availableRegions = data.regions.filter((r) => r.available);
   const unavailableRegions = data.regions.filter((r) => !r.available);
   assert.equal(availableRegions.length, 1);
   assert.equal(availableRegions[0].id, 'dhk1');
-  assert.ok(unavailableRegions.some((r) => r.id === 'fra1'));
+  assert.equal(availableRegions[0].flagUrl, '/flags/bd.svg');
+  assert.ok(unavailableRegions.some((r) => r.id === 'fra1' && r.flagUrl === '/flags/de.svg'));
+});
+
+test('GET /api/cloud/droplets/check-availability validates hostname and allows isolated usernames including root', async t => {
+  const call = await createClient(t);
+
+  const validRes = await call('/api/cloud/droplets/check-availability?hostname=web-node-01&username=root');
+  assert.equal(validRes.status, 200);
+  const validJson = await validRes.json();
+  assert.equal(validJson.success, true);
+  assert.deepEqual(validJson.hostname, {
+    value: 'web-node-01',
+    valid: true,
+    available: true,
+    reason: 'Available'
+  });
+  assert.deepEqual(validJson.username, {
+    value: 'root',
+    valid: true,
+    available: true,
+    reason: 'Isolated per droplet'
+  });
+
+  const invalidRes = await call('/api/cloud/droplets/check-availability?hostname=x&username=1bad');
+  assert.equal(invalidRes.status, 200);
+  const invalidJson = await invalidRes.json();
+  assert.equal(invalidJson.hostname.valid, false);
+  assert.equal(invalidJson.hostname.available, false);
+  assert.equal(invalidJson.username.valid, false);
+  assert.equal(invalidJson.username.available, false);
+
+  const checkSpy = t.mock.method(CloudDB, 'checkDropletAvailability', async ({ userId, hostname, username }) => ({
+    hostname: {
+      value: hostname,
+      valid: true,
+      available: false,
+      reason: 'Already used in your account'
+    },
+    username: {
+      value: username,
+      valid: true,
+      available: true,
+      reason: 'Isolated per droplet'
+    },
+    checkedUserId: userId
+  }));
+  const takenRes = await call('/api/cloud/droplets/check-availability?hostname=taken-node&username=root', {
+    headers: { 'x-user-id': 'usr_cloud_1' }
+  });
+  assert.equal(takenRes.status, 200);
+  const takenJson = await takenRes.json();
+  assert.equal(checkSpy.mock.callCount(), 1);
+  assert.deepEqual(checkSpy.mock.calls[0].arguments[0], {
+    userId: 'usr_cloud_1',
+    hostname: 'taken-node',
+    username: 'root'
+  });
+  assert.equal(takenJson.hostname.available, false);
+  assert.equal(takenJson.hostname.reason, 'Already used in your account');
 });
 
 test('POST /api/cloud/droplets rejects unavailable image/region or weak credentials and provisions valid requests', async t => {
@@ -206,7 +266,7 @@ test('POST /api/cloud/droplets rejects unavailable image/region or weak credenti
       imageId: 'debian-12',
       regionId: 'dhk1',
       hostname: 'my-node-01',
-      username: 'tiwlo_user',
+      username: 'root',
       password: 'StrongPassword1!'
     })
   });
@@ -219,11 +279,37 @@ test('POST /api/cloud/droplets rejects unavailable image/region or weak credenti
       imageId: 'ubuntu-24',
       regionId: 'fra1',
       hostname: 'my-node-01',
-      username: 'tiwlo_user',
+      username: 'root',
       password: 'StrongPassword1!'
     })
   });
   assert.equal(badRegion.status, 400);
+
+  const badHost = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      imageId: 'ubuntu-24',
+      regionId: 'dhk1',
+      hostname: 'x',
+      username: 'root',
+      password: 'StrongPassword1!'
+    })
+  });
+  assert.equal(badHost.status, 400);
+
+  const badUser = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      imageId: 'ubuntu-24',
+      regionId: 'dhk1',
+      hostname: 'my-node-01',
+      username: '1invalid',
+      password: 'StrongPassword1!'
+    })
+  });
+  assert.equal(badUser.status, 400);
 
   const badPass = await call('/api/cloud/droplets', {
     method: 'POST',
@@ -232,14 +318,22 @@ test('POST /api/cloud/droplets rejects unavailable image/region or weak credenti
       imageId: 'ubuntu-24',
       regionId: 'dhk1',
       hostname: 'my-node-01',
-      username: 'tiwlo_user',
+      username: 'root',
       password: '123'
     })
   });
   assert.equal(badPass.status, 400);
 
   const createSpy = t.mock.method(CloudDB, 'createDroplet', async (userId, body) => ({
-    droplet: { id: 'drp_1', userId, name: body.hostname, image: 'Ubuntu 24.04 LTS', accessUsername: body.username },
+    droplet: {
+      id: 'drp_1',
+      userId,
+      name: body.hostname,
+      image: 'Ubuntu 24.04 LTS',
+      accessUsername: body.username || 'root',
+      sshPort: 22001,
+      sshCommand: `ssh ${body.username || 'root'}@127.0.0.1 -p 22001`
+    },
     tenant: { tenantId: 'ubt_1', nodeId: 'primary-ubuntu-node' }
   }));
   const ok = await call('/api/cloud/droplets', {
@@ -249,12 +343,191 @@ test('POST /api/cloud/droplets rejects unavailable image/region or weak credenti
       imageId: 'ubuntu-24',
       regionId: 'dhk1',
       hostname: 'my-node-01',
-      username: 'tiwlo_user',
+      username: 'root',
       password: 'StrongPassword1!'
     })
   });
   assert.equal(ok.status, 201);
   assert.equal(createSpy.mock.callCount(), 1);
   const json = await ok.json();
-  assert.equal(json.droplet.accessUsername, 'tiwlo_user');
+  assert.equal(json.droplet.accessUsername, 'root');
+  assert.equal(json.droplet.sshCommand, 'ssh root@127.0.0.1 -p 22001');
+});
+
+test('GET /api/cloud/droplets/catalog returns clusterPool, images, and regions', async t => {
+  const call = await createClient(t);
+
+  const defaultRes = await call('/api/cloud/droplets/catalog');
+  assert.equal(defaultRes.status, 200);
+  const defaultData = await defaultRes.json();
+  assert.equal(defaultData.success, true);
+  assert.ok('clusterPool' in defaultData);
+  assert.ok(Array.isArray(defaultData.images) && defaultData.images.length > 0);
+  assert.ok(Array.isArray(defaultData.regions) && defaultData.regions.length > 0);
+
+  const mockPool = {
+    totalNodes: 3,
+    onlineNodes: 2,
+    totalCpuCores: 24,
+    totalRamGb: 96,
+    totalStorageGb: 1500,
+    totalStorageFreeGb: 920.5
+  };
+  const catalogSpy = t.mock.method(CloudDB, 'getDropletCatalog', async () => ({
+    images: defaultData.images,
+    regions: defaultData.regions,
+    clusterPool: mockPool,
+    connectedServer: defaultData.connectedServer
+  }));
+
+  const pooledRes = await call('/api/cloud/droplets/catalog');
+  assert.equal(pooledRes.status, 200);
+  const pooledData = await pooledRes.json();
+  assert.equal(catalogSpy.mock.callCount(), 1);
+  assert.equal(pooledData.success, true);
+  assert.deepEqual(pooledData.clusterPool, mockPool);
+  assert.equal(pooledData.images.length, defaultData.images.length);
+  assert.equal(pooledData.regions.length, defaultData.regions.length);
+});
+
+test('POST /api/cloud/droplets and DELETE /api/cloud/droplets/:id enforce auth, conflict handling, and ownership', async t => {
+  const call = await createClient(t);
+  const jsonHeaders = { 'content-type': 'application/json' };
+  const ownerHeaders = { 'x-user-id': 'usr_owner', ...jsonHeaders };
+
+  const unauthCreate = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      imageId: 'ubuntu-24',
+      regionId: 'dhk1',
+      hostname: 'app-node-01',
+      username: 'root',
+      password: 'StrongPassword1!'
+    })
+  });
+  assert.equal(unauthCreate.status, 401);
+
+  const stored = new Map();
+  t.mock.method(CloudDB, 'createDroplet', async (userId, body) => {
+    if (body.hostname === 'duplicate-node') {
+      const err = new Error('Hostname is already used in your account.');
+      err.statusCode = 409;
+      throw err;
+    }
+    const droplet = {
+      id: 'drp_created_1',
+      userId,
+      name: body.hostname,
+      image: 'Ubuntu 24.04 LTS',
+      accessUsername: body.username || 'root',
+      sshPort: 22005,
+      sshCommand: `ssh ${body.username || 'root'}@127.0.0.1 -p 22005`
+    };
+    stored.set(droplet.id, droplet);
+    return { droplet, tenant: { tenantId: 'ubt_created_1', nodeId: 'primary-ubuntu-node' } };
+  });
+  t.mock.method(CloudDB, 'getDropletById', async (id) => stored.get(id) || null);
+  const deleteSpy = t.mock.method(CloudDB, 'deleteDroplet', async (userId, id) => {
+    const existing = stored.get(id);
+    if (!existing || existing.userId !== userId) return false;
+    stored.delete(id);
+    return true;
+  });
+
+  const conflictRes = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers: ownerHeaders,
+    body: JSON.stringify({
+      imageId: 'ubuntu-24',
+      regionId: 'dhk1',
+      hostname: 'duplicate-node',
+      username: 'root',
+      password: 'StrongPassword1!'
+    })
+  });
+  assert.equal(conflictRes.status, 409);
+
+  const createRes = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers: ownerHeaders,
+    body: JSON.stringify({
+      imageId: 'ubuntu-24',
+      regionId: 'dhk1',
+      hostname: 'app-node-01',
+      username: 'root',
+      password: 'StrongPassword1!'
+    })
+  });
+  assert.equal(createRes.status, 201);
+  const created = await createRes.json();
+  assert.equal(created.success, true);
+  assert.equal(created.droplet.id, 'drp_created_1');
+
+  assert.equal((await call('/api/cloud/droplets/drp_created_1', { method: 'DELETE' })).status, 401);
+  assert.equal((await call('/api/cloud/droplets/drp_missing', {
+    method: 'DELETE',
+    headers: { 'x-user-id': 'usr_owner' }
+  })).status, 404);
+  assert.equal((await call('/api/cloud/droplets/drp_created_1', {
+    method: 'DELETE',
+    headers: { 'x-user-id': 'usr_foreign' }
+  })).status, 404);
+  assert.equal(deleteSpy.mock.callCount(), 0);
+
+  const delOk = await call('/api/cloud/droplets/drp_created_1', {
+    method: 'DELETE',
+    headers: { 'x-user-id': 'usr_owner' }
+  });
+  assert.equal(delOk.status, 200);
+  const delJson = await delOk.json();
+  assert.equal(delJson.success, true);
+  assert.equal(deleteSpy.mock.callCount(), 1);
+  assert.deepEqual(deleteSpy.mock.calls[0].arguments, ['usr_owner', 'drp_created_1']);
+});
+
+test('PATCH /api/cloud/droplets/:id/status rejects missing or invalid status and enforces ownership', async t => {
+  const call = await createClient(t);
+  t.mock.method(CloudDB, 'getDropletById', async (id) => (
+    id === 'drp_1' ? { id: 'drp_1', userId: 'usr_owner' } : null
+  ));
+
+  const foreignRes = await call('/api/cloud/droplets/drp_1/status', {
+    method: 'PATCH',
+    headers: { 'x-user-id': 'usr_other', 'content-type': 'application/json' },
+    body: JSON.stringify({ status: 'stopped' })
+  });
+  assert.equal(foreignRes.status, 404);
+
+  const missingStatusRes = await call('/api/cloud/droplets/drp_1/status', {
+    method: 'PATCH',
+    headers: { 'x-user-id': 'usr_owner', 'content-type': 'application/json' },
+    body: JSON.stringify({ status: '' })
+  });
+  assert.equal(missingStatusRes.status, 400);
+
+  const invalidStatusRes = await call('/api/cloud/droplets/drp_1/status', {
+    method: 'PATCH',
+    headers: { 'x-user-id': 'usr_owner', 'content-type': 'application/json' },
+    body: JSON.stringify({ status: 'restarting' })
+  });
+  assert.equal(invalidStatusRes.status, 400);
+
+  await assert.rejects(
+    () => CloudDB.updateDropletStatus('usr_owner', 'drp_1', 'restarting'),
+    (err) => err.statusCode === 400
+  );
+
+  // Suspended droplet cannot self-reactivate via status PATCH (402 Payment Required)
+  t.mock.method(CloudDB, 'updateDropletStatus', async () => {
+    const err = new Error('Droplet is suspended due to unpaid billing.');
+    err.statusCode = 402;
+    throw err;
+  });
+  const selfUnsuspendRes = await call('/api/cloud/droplets/drp_1/status', {
+    method: 'PATCH',
+    headers: { 'x-user-id': 'usr_owner', 'content-type': 'application/json' },
+    body: JSON.stringify({ status: 'active' })
+  });
+  assert.equal(selfUnsuspendRes.status, 402);
 });

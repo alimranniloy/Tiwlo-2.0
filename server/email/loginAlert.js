@@ -1,4 +1,4 @@
-import { renderBaseEmail } from './baseTemplate.js';
+import { renderBaseEmail, escapeEmailHtml, sanitizeEmailUrl } from './baseTemplate.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
 
 /**
@@ -19,8 +19,12 @@ export function renderLoginAlertEmail({
   timestamp = null,
   actionUrl = getPlatformUrl()
 }) {
-  const formattedTime = timestamp || new Date().toUTCString();
-  const deviceDisplay = userAgent && userAgent.length > 55 ? userAgent.slice(0, 55) + '...' : (userAgent || 'Desktop Web Browser');
+  const formattedTime = escapeEmailHtml(timestamp || new Date().toUTCString());
+  const rawDevice = userAgent && userAgent.length > 55 ? userAgent.slice(0, 55) + '...' : (userAgent || 'Desktop Web Browser');
+  const deviceDisplay = escapeEmailHtml(rawDevice);
+  const safeLocation = escapeEmailHtml(location);
+  const safeIp = escapeEmailHtml(ip);
+  const safeActionUrl = escapeEmailHtml(sanitizeEmailUrl(actionUrl, getPlatformUrl()));
 
   const contentHtml = `
     <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 500; line-height: 28px; color: #202124; text-align: center;">
@@ -45,11 +49,11 @@ export function renderLoginAlertEmail({
             </tr>
             <tr>
               <td style="padding: 3px 0; color: #70757a; width: 90px; vertical-align: top;">Approx. region</td>
-              <td style="padding: 3px 0; color: #202124; font-weight: 400;">${location}</td>
+              <td style="padding: 3px 0; color: #202124; font-weight: 400;">${safeLocation}</td>
             </tr>
             <tr>
               <td style="padding: 3px 0; color: #70757a; width: 90px; vertical-align: top;">IP address</td>
-              <td style="padding: 3px 0; color: #202124; font-weight: 400; font-family: 'Google Sans', Roboto, Consolas, monospace;">${ip}</td>
+              <td style="padding: 3px 0; color: #202124; font-weight: 400; font-family: 'Google Sans', Roboto, Consolas, monospace;">${safeIp}</td>
             </tr>
           </table>
         </td>
@@ -60,7 +64,7 @@ export function renderLoginAlertEmail({
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
       <tr>
         <td align="center">
-          <a href="${actionUrl}" target="_blank" style="background-color: #137333; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 10px 24px; border-radius: 4px; display: inline-block; font-family: 'Google Sans', Roboto, Arial, sans-serif;">
+          <a href="${safeActionUrl}" target="_blank" rel="noopener noreferrer" style="background-color: #137333; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 10px 24px; border-radius: 4px; display: inline-block; font-family: 'Google Sans', Roboto, Arial, sans-serif;">
             Check activity
           </a>
         </td>

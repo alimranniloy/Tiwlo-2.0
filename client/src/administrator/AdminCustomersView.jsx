@@ -118,7 +118,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
   const [identityLockTarget, setIdentityLockTarget] = useState(null);
   const [creditModalTarget, setCreditModalTarget] = useState(null);
   const [creditForm, setCreditForm] = useState({
-    creditType: 'cash',
+    creditType: 'promo',
     operation: 'add',
     amountUsd: '10',
     validityDays: '30',
@@ -1273,8 +1273,9 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                   onChange={(e) => setCreditForm((f) => ({ ...f, creditType: e.target.value }))}
                   className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 >
-                  <option value="cash">Cash Balance (Paid Credit)</option>
-                  <option value="promo">Free Promo Credit (Expiring)</option>
+                  <option value="promo">Promo Credit Wallet (Bonus / Gift)</option>
+                  <option value="cash">Cash Balance Wallet (Paid Funds)</option>
+                  <option value="reclassify_to_promo">Move Mistaken Cash -&gt; Promo Wallet</option>
                 </select>
               </div>
 

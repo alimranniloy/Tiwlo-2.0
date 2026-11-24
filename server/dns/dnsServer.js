@@ -128,7 +128,7 @@ function isRateLimited(clientIp) {
 }
 
 // Garbage collection for rate limiting map every 5 minutes
-setInterval(() => {
+const dnsRateLimitGcTimer = setInterval(() => {
   const now = Date.now();
   for (const [ip, data] of rateLimitMap.entries()) {
     if (data.resetTime < now && data.bannedUntil < now) {
@@ -136,6 +136,7 @@ setInterval(() => {
     }
   }
 }, 300000);
+dnsRateLimitGcTimer.unref?.();
 
 // ==========================================
 // DYNAMIC DOMAIN RESOLVER LOGIC
@@ -160,7 +161,8 @@ async function findAuthoritativeZone(queryDomain) {
      FROM system_custom_domains
      WHERE domain = ANY($1::text[])
        AND status IN ('pending_verification', 'verified', 'active')
-     ORDER BY LENGTH(domain) DESC
+     ORDER BY CASE WHEN status IN ('verified', 'active') THEN 1 ELSE 0 END DESC,
+              LENGTH(domain) DESC
      LIMIT 1`,
     [candidates]
   );
@@ -295,7 +297,7 @@ async function handleDnsRequest(request, send, rinfo) {
             const name = question.name;
             if (record.type === 'A' && queryType === Packet.TYPE.A) addARecord(response, name, record.content, record.ttl);
             else if (record.type === 'AAAA' && queryType === Packet.TYPE.AAAA) addAaaaRecord(response, name, record.content, record.ttl);
-            else if (record.type === 'CNAME') response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.content });
+            else if (record.type === 'CNAME' && queryType === Packet.TYPE.CNAME) response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.content });
             else if (record.type === 'MX' && queryType === Packet.TYPE.MX) {
               response.answers.push({ name, type: Packet.TYPE.MX, class: Packet.CLASS.IN, ttl: record.ttl, exchange: record.content, priority: record.priority });
               addARecord(response, record.content, DNS_CONFIG.PUBLIC_MAIL_IP);

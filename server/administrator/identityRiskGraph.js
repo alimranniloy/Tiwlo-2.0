@@ -828,7 +828,9 @@ export async function buildUserActivityDossier(userId, { viewerIsSuperAdmin = fa
     userPromoClaims,
     userTopups,
     userDeviceIdentities,
-    userBlockedSignals
+    userBlockedSignals,
+    userBillingRows,
+    userStoreRows
   ] = await Promise.all([
     safeQueryRows(
       `SELECT id, event_type, severity, user_id, remote_ip::text AS remote_ip, user_agent, details, created_at
@@ -915,6 +917,21 @@ export async function buildUserActivityDossier(userId, { viewerIsSuperAdmin = fa
        ORDER BY updated_at DESC
        LIMIT 25`,
       [uid]
+    ),
+    safeQueryRows(
+      `SELECT credits, promotional_credits, promotional_expires_at, currency, account_type
+       FROM cloud_billing_accounts
+       WHERE user_id = $1
+       LIMIT 1`,
+      [uid]
+    ),
+    safeQueryRows(
+      `SELECT id, tiwi_id, store_name, subdomain, status, plan_id, currency, created_at, updated_at
+       FROM system_stores
+       WHERE owner_id = $1 OR tiwi_id = $2
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [uid, String(row.tiwi_id || '')]
     )
   ]);
 
@@ -927,6 +944,38 @@ export async function buildUserActivityDossier(userId, { viewerIsSuperAdmin = fa
     deviceFingerprintPreview: s.device_fingerprint ? `${String(s.device_fingerprint).slice(0, 12)}…` : null,
     expiresAt: s.expires_at || null,
     createdAt: s.created_at || null
+  }));
+
+  const billingAcct = userBillingRows?.[0] || null;
+  const rawCashCredits = Number(billingAcct?.credits || 0);
+  const cashBalance = Number.isFinite(rawCashCredits) && rawCashCredits >= 0 ? Math.round(rawCashCredits * 100) / 100 : 0;
+  const promoExpiresMs = billingAcct?.promotional_expires_at
+    ? Date.parse(String(billingAcct.promotional_expires_at))
+    : NaN;
+  const rawPromoCredits = Number(billingAcct?.promotional_credits || 0);
+  const promoIsExpired = Number.isFinite(promoExpiresMs) && promoExpiresMs <= Date.now();
+  const promoCreditBalance =
+    Number.isFinite(rawPromoCredits) && rawPromoCredits > 0 && !promoIsExpired
+      ? Math.round(rawPromoCredits * 100) / 100
+      : 0;
+  const wallet = {
+    credits: cashBalance,
+    promotionalCredits: promoCreditBalance,
+    promotionalExpiresAt: billingAcct?.promotional_expires_at || null,
+    currency: billingAcct?.currency || 'USD',
+    accountType: billingAcct?.account_type || row.account_type || 'personal'
+  };
+
+  const formattedStores = (userStoreRows || []).map((st) => ({
+    id: st.id || st.tiwi_id,
+    tiwiId: st.tiwi_id || st.id,
+    storeName: st.store_name || 'Tiwlo Store',
+    name: st.store_name || 'Tiwlo Store',
+    subdomain: st.subdomain || '',
+    status: st.status || 'active',
+    planId: st.plan_id || 'free',
+    currency: st.currency || 'USD',
+    createdAt: st.created_at || null
   }));
 
   const user = {
@@ -949,12 +998,19 @@ export async function buildUserActivityDossier(userId, { viewerIsSuperAdmin = fa
     country: row.country || null,
     accountType: row.account_type || 'personal',
     businessName: row.business_name || null,
+    cashBalance,
+    promoCreditBalance,
+    promotionalExpiresAt: wallet.promotionalExpiresAt,
+    storeCount: formattedStores.length,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null
   };
 
   return {
     user,
+    wallet,
+    stores: formattedStores,
+    storeCount: formattedStores.length,
     riskIntelligence,
     linkedAccounts: riskIntelligence.linkedAccounts || [],
     securityEvents: userSecurityEvents,
@@ -1021,6 +1077,7 @@ async function collectSignalHashesForUsers(userIds, queryFn) {
   if (!userIds.length) return [];
   const collected = [];
   const push = (signalType, signalHash, sourceUserId) => {
+    if (signalType === 'ip' || signalType === 'subnet') return;
     const cleaned = cleanHashValue(signalHash);
     if (!cleaned) return;
     collected.push({ signalType, signalHash: cleaned, sourceUserId });

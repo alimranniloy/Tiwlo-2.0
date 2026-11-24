@@ -11,7 +11,7 @@ import path from 'path';
 const activeTickets = new Map();
 
 // Periodic garbage collection for expired tickets (runs every 30 seconds)
-setInterval(() => {
+const mediaTicketGcTimer = setInterval(() => {
   const now = Date.now();
   for (const [id, ticket] of activeTickets.entries()) {
     if (now > ticket.expiresAt) {
@@ -19,6 +19,7 @@ setInterval(() => {
     }
   }
 }, 30000);
+mediaTicketGcTimer.unref?.();
 
 /**
  * Creates an ephemeral, single-session media ticket.

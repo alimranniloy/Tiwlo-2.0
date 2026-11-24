@@ -814,6 +814,7 @@ export async function initPgSchema() {
         image VARCHAR(128),
         access_username VARCHAR(64),
         access_password_hash TEXT,
+        ssh_port INTEGER,
         tenant_id VARCHAR(64),
         node_id VARCHAR(64),
         tags TEXT,
@@ -821,9 +822,11 @@ export async function initPgSchema() {
       );
       ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS access_username VARCHAR(64);
       ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS access_password_hash TEXT;
+      ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS ssh_port INTEGER;
       ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
       ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS node_id VARCHAR(64);
       ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS tags TEXT;
+      ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS internal_ip VARCHAR(64);
 
       CREATE TABLE IF NOT EXISTS cloud_activities (
         id VARCHAR(64) PRIMARY KEY,

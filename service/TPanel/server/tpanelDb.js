@@ -192,15 +192,19 @@ export const TPanelDB = {
         const domain = parts[0];
         const subRel = parts.slice(1).join('/') || fileName;
 
-        // Security check: strictly validate domain and subpath against path traversal
-        if (domain && !domain.includes('..') && !subRel.includes('..') && !/[<>:"\\|?*]/.test(subRel)) {
+        const domainValid = /^[a-z0-9][a-z0-9.-]{1,120}[a-z0-9]$/i.test(domain) && (acc.websites || []).some((w) => w.domain === domain);
+        if (domainValid && !domain.includes('..') && !subRel.includes('..') && !/[<>:"\\|?*\0]/.test(subRel)) {
           const baseDir = path.resolve(`/var/www/${domain}/public_html`);
           const diskPath = path.resolve(baseDir, subRel);
-          if (diskPath.startsWith(baseDir)) {
+          if (diskPath.startsWith(baseDir + path.sep)) {
             const diskDir = path.dirname(diskPath);
             if (fs.existsSync(diskDir)) {
-              fs.writeFileSync(diskPath, content, 'utf8');
-              console.log(`[TPanel Live Sync] Written to ${diskPath}`);
+              const realBase = fs.realpathSync(baseDir);
+              const realDir = fs.realpathSync(diskDir);
+              if (realDir === realBase || realDir.startsWith(realBase + path.sep)) {
+                fs.writeFileSync(diskPath, content, 'utf8');
+                console.log(`[TPanel Live Sync] Written to ${diskPath}`);
+              }
             }
           } else {
             console.warn('[TPanel Live Sync Warning] Blocked path traversal attempt:', filePath);
@@ -391,12 +395,16 @@ export const TPanelDB = {
     // 3. Write app files to file manager
     const subFolder = `/public_html/${domain}`;
     acc.fileSystem = acc.fileSystem || {};
+    const escPhpSingle = (val) => String(val || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[\0\r\n]/g, '');
+    const safeDbNamePhp = escPhpSingle(cleanDbName.replace(/[^a-zA-Z0-9_]/g, '_'));
+    const safeDbUserPhp = escPhpSingle(cleanDbUser.replace(/[^a-zA-Z0-9_]/g, '_'));
+    const safeDbPassPhp = escPhpSingle(adminPass || 'Secr3t_WP');
     acc.fileSystem[subFolder] = [
       { name: 'wp-content', type: 'dir', path: `${subFolder}/wp-content`, size: '94 MB', permissions: '0755', lastModified: 'Just now' },
       { name: 'wp-includes', type: 'dir', path: `${subFolder}/wp-includes`, size: '32 MB', permissions: '0755', lastModified: 'Just now' },
       { name: 'wp-admin', type: 'dir', path: `${subFolder}/wp-admin`, size: '16 MB', permissions: '0755', lastModified: 'Just now' },
       { name: 'index.php', type: 'file', path: `${subFolder}/index.php`, size: '418 B', permissions: '0644', lastModified: 'Just now', content: "<?php define('WP_USE_THEMES', true); require __DIR__ . '/wp-blog-header.php';" },
-      { name: 'wp-config.php', type: 'file', path: `${subFolder}/wp-config.php`, size: '3.1 KB', permissions: '0600', lastModified: 'Just now', content: `<?php\ndefine('DB_NAME', '${cleanDbName}');\ndefine('DB_USER', '${cleanDbUser}');\ndefine('DB_PASSWORD', '${adminPass || 'Secr3t_WP'}');\ndefine('DB_HOST', 'localhost:3306');\n` }
+      { name: 'wp-config.php', type: 'file', path: `${subFolder}/wp-config.php`, size: '3.1 KB', permissions: '0600', lastModified: 'Just now', content: `<?php\ndefine('DB_NAME', '${safeDbNamePhp}');\ndefine('DB_USER', '${safeDbUserPhp}');\ndefine('DB_PASSWORD', '${safeDbPassPhp}');\ndefine('DB_HOST', 'localhost:3306');\n` }
     ];
 
     const installed = {

@@ -53,6 +53,7 @@ import {
 import { createAdminRiskRouter } from './adminRiskRoutes.js';
 import { createAdminStaffRouter } from './adminStaffRoutes.js';
 import { createAdminServerFleetRouter } from './adminServerFleetRoutes.js';
+import { createAdminServerPackageRouter } from './adminServerPackageRoutes.js';
 import { createAdminPlatformOpsRouter } from './adminPlatformOpsRoutes.js';
 import { createAdminSupportRouter } from './adminSupportRoutes.js';
 import { createAdminChatSystemRouter } from './adminChatSystemRoutes.js';
@@ -70,8 +71,14 @@ import {
   setDriveStorageActive
 } from './googleDriveStorage.js';
 import { getStorageSyncStatus, startStorageSync } from '../db/mediaMigration.js';
-import { getDefaultPlatformDnsRecords, PLATFORM_DNS_RECORD_TYPES } from '../dns/platformDnsRecords.js';
+import {
+  getDefaultPlatformDnsRecords,
+  PLATFORM_DNS_RECORD_TYPES,
+  restoreMissingCriticalPlatformDnsRecords
+} from '../dns/platformDnsRecords.js';
+import { normalizeIpv6 } from '../ubuntu/ipv6PoolService.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { enforceUserAccountHold, restoreUserAccountServices } from '../security/accountLifecycleEnforcer.js';
 
 const router = express.Router();
 const PICK_APPEAL_CATEGORY = 'PICK Account Appeal';
@@ -537,7 +544,8 @@ async function loadUserIdentitySummary(user) {
 
 export const adminStaffRouter = createAdminStaffRouter({ requireAdmin, requireRecentReauth, getMasterDb: () => MasterDB });
 export const adminRiskRouter = createAdminRiskRouter({ requireAdmin, requireRecentReauth });
-export const adminFleetRouter = createAdminServerFleetRouter({ requireAdmin, requireRecentReauth });
+export const adminFleetRouter = createAdminServerFleetRouter({ requireAdmin, requirePermission, requireRecentReauth });
+export const adminPackageRouter = createAdminServerPackageRouter({ requireAdmin, requirePermission, requireRecentReauth });
 export const adminPlatformOpsRouter = createAdminPlatformOpsRouter({ requireAdmin, requireRecentReauth });
 export const adminSupportRouter = createAdminSupportRouter({ requireAdmin, requireRecentReauth });
 export const adminChatSystemRouter = createAdminChatSystemRouter({ requireAdmin, requireRecentReauth });
@@ -767,6 +775,7 @@ router.post('/users/:id/biometric/revoke', requireAdmin, requirePermission('mana
 router.use(adminStaffRouter);
 router.use(adminRiskRouter);
 router.use('/fleet', adminFleetRouter);
+router.use('/server-packages', adminPackageRouter);
 router.use(adminPlatformOpsRouter);
 router.use(adminSupportRouter);
 router.use(adminChatSystemRouter);
@@ -779,15 +788,25 @@ function requirePermission(permission) {
     }
     if (isSuperAdminUser(req.adminUser)) return next();
     const staffSvc = await loadStaffSecurityService();
-    if (staffSvc && typeof staffSvc.hasAdminPermission === 'function') {
-      const allowed = staffSvc.hasAdminPermission(req.adminUser, req.adminProfile, permission);
-      if (!allowed) {
-        return res.status(403).json({
-          error: 'You do not have permission to perform this action.',
-          code: 'ADMIN_PERMISSION_DENIED',
-          permission
-        });
-      }
+    if (!staffSvc || typeof staffSvc.hasAdminPermission !== 'function') {
+      return res.status(503).json({
+        error: 'Staff permission verification service unavailable.',
+        code: 'STAFF_PERMISSION_UNAVAILABLE'
+      });
+    }
+    if (req.adminProfile && req.adminProfile.isActive === false) {
+      return res.status(403).json({
+        error: 'Staff access has been deactivated for this account.',
+        code: 'STAFF_PROFILE_INACTIVE'
+      });
+    }
+    const allowed = staffSvc.hasAdminPermission(req.adminUser, req.adminProfile, permission);
+    if (!allowed) {
+      return res.status(403).json({
+        error: 'You do not have permission to perform this action.',
+        code: 'ADMIN_PERMISSION_DENIED',
+        permission
+      });
     }
     return next();
   };
@@ -813,13 +832,29 @@ function validateDnsRecord(input = {}) {
   return { name, type, content, ttl, priority };
 }
 
-router.get('/dns/records', requireAdmin, async (_req, res) => {
+function isProtectedPlatformDnsCollision(record) {
+  const cleanName = String(record?.name || '').trim().toLowerCase();
+  const cleanType = String(record?.type || '').trim().toUpperCase();
+  const cleanContent = String(record?.content || '').trim();
+  const reservedHosts = new Set(['dns1', 'dns2', 'mail', 'auth', 'api', 'www', 'pick', 'tpanel', 'drive', '*']);
+  if (cleanName === '_dmarc' && cleanType === 'TXT') return true;
+  if (cleanName.endsWith('._domainkey') && cleanType === 'TXT') return true;
+  if (reservedHosts.has(cleanName) && ['A', 'AAAA', 'CNAME', 'NS', 'MX'].includes(cleanType)) return true;
+  if (cleanName === '@' && ['NS', 'MX', 'A', 'AAAA', 'CNAME'].includes(cleanType)) return true;
+  if (cleanName === '@' && cleanType === 'TXT' && /^(?:v=spf1\b|google-site-verification=)/i.test(cleanContent)) {
+    return true;
+  }
+  return false;
+}
+
+router.get('/dns/records', requireAdmin, requirePermission('manage_dns_domains'), async (_req, res) => {
   try {
     const zone = PLATFORM_CONFIG.primaryDomain;
+    await restoreMissingCriticalPlatformDnsRecords({ query: queryPg }).catch(() => {});
     const { rows } = await queryPg(
       `SELECT id, zone, name, type, content, ttl, priority, system_key AS "systemKey",
               is_system AS "isSystem", enabled, created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM system_platform_dns_records WHERE zone = $1 ORDER BY name, type, priority NULLS FIRST, content`,
+       FROM system_platform_dns_records WHERE zone = $1 ORDER BY is_system DESC, name, type, priority NULLS FIRST, content`,
       [zone]
     );
     return res.json({ success: true, zone, records: rows, defaults: getDefaultPlatformDnsRecords() });
@@ -829,16 +864,22 @@ router.get('/dns/records', requireAdmin, async (_req, res) => {
   }
 });
 
-router.post('/dns/records', requireAdmin, requireRecentReauth, async (req, res) => {
+router.post('/dns/records', requireAdmin, requirePermission('manage_dns_domains'), requireRecentReauth, async (req, res) => {
   try {
     const record = validateDnsRecord(req.body);
+    if (isProtectedPlatformDnsCollision(record)) {
+      return res.status(403).json({
+        error: 'Protected platform DNS names/types (@ root NS/MX/A/AAAA/CNAME, SPF, DMARC, DKIM, Google Verification, system subdomains) are locked and cannot be shadowed.'
+      });
+    }
+    const cleanContent = record.type === 'AAAA' ? normalizeIpv6(record.content) : record.content;
     const id = `dns_${randomUUID().replace(/-/g, '')}`;
     const zone = PLATFORM_CONFIG.primaryDomain;
     const { rows } = await queryPg(
       `INSERT INTO system_platform_dns_records
         (id, zone, name, type, content, ttl, priority, enabled, created_by, updated_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE,$8,$8) RETURNING *`,
-      [id, zone, record.name, record.type, record.content, record.ttl, record.priority, req.adminUser.id]
+      [id, zone, record.name, record.type, cleanContent, record.ttl, record.priority, req.adminUser.id]
     );
     res.status(201).json({ success: true, record: rows[0] });
   } catch (error) {
@@ -847,14 +888,29 @@ router.post('/dns/records', requireAdmin, requireRecentReauth, async (req, res) 
   }
 });
 
-router.put('/dns/records/:id', requireAdmin, requireRecentReauth, async (req, res) => {
+router.put('/dns/records/:id', requireAdmin, requirePermission('manage_dns_domains'), requireRecentReauth, async (req, res) => {
   try {
+    const zone = PLATFORM_CONFIG.primaryDomain;
+    const { rows: existingRows } = await queryPg(
+      'SELECT id, is_system FROM system_platform_dns_records WHERE id = $1 AND zone = $2 LIMIT 1',
+      [req.params.id, zone]
+    );
+    if (!existingRows[0]) return res.status(404).json({ error: 'DNS record not found.' });
+    if (existingRows[0].is_system) {
+      return res.status(403).json({ error: 'Critical system DNS records (Google Verification, NS, MX, SPF, DMARC) are locked and auto-protected.' });
+    }
     const record = validateDnsRecord(req.body);
+    if (isProtectedPlatformDnsCollision(record)) {
+      return res.status(403).json({
+        error: 'Protected platform DNS names/types (@ root NS/MX/A/AAAA/CNAME, SPF, DMARC, DKIM, Google Verification, system subdomains) cannot be shadowed.'
+      });
+    }
+    const cleanContent = record.type === 'AAAA' ? normalizeIpv6(record.content) : record.content;
     const { rows } = await queryPg(
       `UPDATE system_platform_dns_records SET name=$1, type=$2, content=$3, ttl=$4, priority=$5,
          enabled=TRUE, is_system=FALSE, updated_by=$6, updated_at=CURRENT_TIMESTAMP
-       WHERE id=$7 AND zone=$8 RETURNING *`,
-      [record.name, record.type, record.content, record.ttl, record.priority, req.adminUser.id, req.params.id, PLATFORM_CONFIG.primaryDomain]
+       WHERE id=$7 AND zone=$8 AND is_system=FALSE RETURNING *`,
+      [record.name, record.type, cleanContent, record.ttl, record.priority, req.adminUser.id, req.params.id, zone]
     );
     if (!rows[0]) return res.status(404).json({ error: 'DNS record not found.' });
     res.json({ success: true, record: rows[0] });
@@ -864,12 +920,21 @@ router.put('/dns/records/:id', requireAdmin, requireRecentReauth, async (req, re
   }
 });
 
-router.delete('/dns/records/:id', requireAdmin, requireRecentReauth, async (req, res) => {
+router.delete('/dns/records/:id', requireAdmin, requirePermission('manage_dns_domains'), requireRecentReauth, async (req, res) => {
   try {
+    const zone = PLATFORM_CONFIG.primaryDomain;
+    const { rows: existingRows } = await queryPg(
+      'SELECT id, is_system FROM system_platform_dns_records WHERE id = $1 AND zone = $2 LIMIT 1',
+      [req.params.id, zone]
+    );
+    if (!existingRows[0]) return res.status(404).json({ error: 'DNS record not found.' });
+    if (existingRows[0].is_system) {
+      return res.status(403).json({ error: 'Critical system DNS records (Google Verification, NS, MX, SPF, DMARC) are locked and cannot be deleted.' });
+    }
     const { rows } = await queryPg(
-      `UPDATE system_platform_dns_records SET enabled=FALSE, is_system=FALSE, updated_by=$1,
-         updated_at=CURRENT_TIMESTAMP WHERE id=$2 AND zone=$3 RETURNING id`,
-      [req.adminUser.id, req.params.id, PLATFORM_CONFIG.primaryDomain]
+      `UPDATE system_platform_dns_records SET enabled=FALSE, updated_by=$1,
+         updated_at=CURRENT_TIMESTAMP WHERE id=$2 AND zone=$3 AND is_system=FALSE RETURNING id`,
+      [req.adminUser.id, req.params.id, zone]
     );
     if (!rows[0]) return res.status(404).json({ error: 'DNS record not found.' });
     res.json({ success: true });
@@ -2404,6 +2469,12 @@ router.post('/identity-reviews/:id/decision', requireAdmin, async (req, res) => 
           }
         }
         await MasterDB.updateUser(user.id, acceptUpdates);
+        if (!user.isBanned) {
+          await restoreUserAccountServices({
+            userId: user.id,
+            allowPermanentOverride: false
+          }).catch((err) => console.warn('[Identity Accept Service Restore]', err?.message || err));
+        }
       }
       if (recipientEmail) {
         identityVerificationEmailNotifications.completed({
@@ -2458,6 +2529,14 @@ router.post('/identity-reviews/:id/decision', requireAdmin, async (req, res) => 
           userUpdates.banReason = review.reviewReason || 'Identity verification permanently closed.';
         }
         await MasterDB.updateUser(user.id, userUpdates);
+        if (banUser) {
+          await enforceUserAccountHold({
+            userId: user.id,
+            reason: userUpdates.banReason,
+            permanent: true,
+            holdType: 'nid_ban'
+          }).catch((err) => console.warn('[Identity Close Service Hold]', err?.message || err));
+        }
       }
       if (recipientEmail) {
         identityVerificationEmailNotifications.required({
@@ -2508,21 +2587,33 @@ router.get('/users', requireAdmin, async (req, res) => {
     const rawUsers = requesterIsSuperAdmin ? allUsers : allUsers.filter(u => !isSuperAdminUser(u));
     const { allStores: stores } = (await getAggregatedStoreData());
     let pickUsersRows = [];
+    let billingAccountRows = [];
     if (hasActivePgOrMock()) {
       try {
-        const pickUsersResult = await queryPg(
-          `SELECT pu.tiwlo_user_id, pu.registration_source,
-                  d.application_status AS delivery_application_status,
-                  d.vehicle_type AS delivery_vehicle_type,
-                  d.is_on_duty AS delivery_is_on_duty
-           FROM pick.users pu
-           LEFT JOIN pick.delivery_profiles d ON d.tiwlo_user_id = pu.tiwlo_user_id`
-        );
+        const [pickUsersResult, billingResult] = await Promise.all([
+          queryPg(
+            `SELECT pu.tiwlo_user_id, pu.registration_source,
+                    d.application_status AS delivery_application_status,
+                    d.vehicle_type AS delivery_vehicle_type,
+                    d.is_on_duty AS delivery_is_on_duty
+             FROM pick.users pu
+             LEFT JOIN pick.delivery_profiles d ON d.tiwlo_user_id = pu.tiwlo_user_id`
+          ).catch(() => ({ rows: [] })),
+          queryPg(
+            `SELECT user_id, credits, promotional_credits, promotional_expires_at
+             FROM cloud_billing_accounts`
+          ).catch(() => ({ rows: [] }))
+        ]);
         pickUsersRows = Array.isArray(pickUsersResult?.rows) ? pickUsersResult.rows : [];
+        billingAccountRows = Array.isArray(billingResult?.rows) ? billingResult.rows : [];
       } catch {
         pickUsersRows = [];
+        billingAccountRows = [];
       }
     }
+    const billingByUserId = new Map(
+      billingAccountRows.map(b => [String(b.user_id), b])
+    );
     const registrationSources = new Map(
       pickUsersRows.map(row => [row.tiwlo_user_id, row.registration_source])
     );
@@ -2552,6 +2643,14 @@ router.get('/users', requireAdmin, async (req, res) => {
 
       const storeCount = userStores.length;
       const deliveryRegistration = deliveryRegistrations.get(u.id);
+      const acct = billingByUserId.get(String(u.id));
+      const cashBalance = Math.max(0, Math.round((Number(acct?.credits || 0) || 0) * 100) / 100);
+      const promoExpMs = acct?.promotional_expires_at ? Date.parse(String(acct.promotional_expires_at)) : NaN;
+      const promoExpired = Number.isFinite(promoExpMs) && promoExpMs <= Date.now();
+      const promoCreditBalance =
+        acct && Number(acct.promotional_credits || 0) > 0 && !promoExpired
+          ? Math.round(Number(acct.promotional_credits) * 100) / 100
+          : 0;
 
       return {
         id: u.id,
@@ -2566,6 +2665,9 @@ router.get('/users', requireAdmin, async (req, res) => {
         role: u.role || 'owner',
         planId: u.planId || 'free',
         planName: u.planName || u.planId || 'Unknown',
+        cashBalance,
+        promoCreditBalance,
+        promotionalExpiresAt: acct?.promotional_expires_at || null,
         storeCount,
         stores: userStores.map(s => ({ id: s.id, name: s.storeName, subdomain: s.subdomain })),
         avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
@@ -2747,6 +2849,12 @@ router.post('/users/:id/ban', requireAdmin, requirePermission('ban_users'), requ
       if (!pickAccount.rows[0]) {
         await MasterDB.revokeUserSessions(targetUser.id);
       }
+      await enforceUserAccountHold({
+        userId: targetUser.id,
+        reason: banReason,
+        permanent: Boolean(req.body?.permanent),
+        holdType: req.body?.permanent ? 'permanent_ban' : (req.body?.holdType || 'temp_ban')
+      }).catch((err) => console.warn('[Admin Ban Service Hold]', err?.message || err));
       await recordSecurityEvent({
         eventType: 'admin.account_disabled',
         severity: 'warning',
@@ -2774,6 +2882,10 @@ router.post('/users/:id/ban', requireAdmin, requirePermission('ban_users'), requ
       await unblockUserAndSignals(targetUser.id).catch((err) =>
         console.warn('[Admin Unban] Failed to clear blocked device/IP records:', err.message)
       );
+      await restoreUserAccountServices({
+        userId: targetUser.id,
+        allowPermanentOverride: isSuperAdminAccount(req.adminUser)
+      }).catch((err) => console.warn('[Admin Unban Service Restore]', err?.message || err));
       const checkupSession = RestoreSessions.createSecurityCheckupSession({
         email: targetUser.email,
         userId: targetUser.id

@@ -71,6 +71,12 @@ export async function getCloudDashboardData(userId = null) {
           regionFlag
           status
           image
+          accessUsername
+          sshPort
+          sshCommand
+          tenantId
+          nodeId
+          tags
           created
           createdAt
         }
@@ -89,6 +95,9 @@ export async function getCloudDashboardData(userId = null) {
           os
           version
           icon
+          iconUrl
+          available
+          featured
         }
       }
     }

@@ -1,4 +1,4 @@
-import { renderBaseEmail } from './baseTemplate.js';
+import { renderBaseEmail, escapeEmailHtml } from './baseTemplate.js';
 
 /**
  * Signup Email Verification OTP Email Template
@@ -9,6 +9,7 @@ import { renderBaseEmail } from './baseTemplate.js';
  * - Expiry note
  */
 export function renderSignupVerificationEmail({ to, name, code }) {
+  const safeCode = escapeEmailHtml(code);
   const contentHtml = `
     <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 500; line-height: 28px; color: #202124; text-align: center;">
       Verify your email address
@@ -24,7 +25,7 @@ export function renderSignupVerificationEmail({ to, name, code }) {
         <td align="center">
           <div style="display: inline-block; background-color: #f8f9fa; border: 1px solid #dadce0; border-radius: 8px; padding: 16px 32px; text-align: center;">
             <span class="code-display" style="font-family: 'Google Sans', Roboto, 'Roboto Mono', Consolas, monospace; font-size: 32px; font-weight: 500; letter-spacing: 6px; color: #1f1f1f; line-height: 1;">
-              ${code}
+              ${safeCode}
             </span>
           </div>
         </td>
@@ -43,9 +44,9 @@ export function renderSignupVerificationEmail({ to, name, code }) {
   `;
 
   return renderBaseEmail({
-    title: `${code} is your Tiwlo verification code`,
+    title: `${safeCode} is your Tiwlo verification code`,
     recipientEmail: to,
     contentHtml,
-    preheader: `${code} is your Tiwlo verification code. Confirm your email address to activate your account.`
+    preheader: `${safeCode} is your Tiwlo verification code. Confirm your email address to activate your account.`
   });
 }

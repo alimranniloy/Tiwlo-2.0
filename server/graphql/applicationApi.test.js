@@ -263,18 +263,43 @@ test('application GraphQL recursively discovers and dispatches nested sub-router
   assert.equal(asyncErrRes.body.data.result.status, 503);
 });
 
-test('adminRoutes exposes staff-support, fleet, and risk-intel operations in GraphQL manifest', async t => {
+test('adminRoutes exposes staff-support, fleet, and risk-intel operations only to admins and /graphql blocks batched aliases', async t => {
   const { default: adminRoutes, adminStaffRouter, adminRiskRouter, adminFleetRouter } = await import('../administrator/adminRoutes.js');
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => {
+    if (req.headers.authorization === 'Bearer admin-token') {
+      req.activeUser = { id: 'admin_1', role: 'super_admin', addressVerified: true };
+    }
+    next();
+  });
   app.post('/api/graphql', createApplicationGraphQL([
     ['/api/admin', adminRoutes],
     ['/api/admin', adminStaffRouter],
     ['/api/admin', adminRiskRouter],
     ['/api/admin/fleet', adminFleetRouter]
   ]));
+  app.post('/graphql', createGraphQLMiddleware());
   const call = await serve(t, app);
-  const manifest = await call('{applicationOperations{field method path}}');
+
+  // Anonymous callers must not enumerate /api/admin routes
+  const anonManifest = await call('{applicationOperations{field method path}}');
+  assert.equal(anonManifest.body.data.applicationOperations.length, 0);
+
+  // Malformed array/primitive input is rejected cleanly
+  const badInputRes = await call(
+    'query($input:ApplicationInput){result:getApiAdminFleetLive_status(input:$input){status body}}',
+    { input: { body: ['not-an-object'] } },
+    { authorization: 'Bearer admin-token' }
+  );
+  assert.equal(badInputRes.body.data.result.status, 400);
+
+  // /graphql rejects multi-root aliased queries
+  const batchedRes = await call('{ a: popularImages { id } b: popularImages { id } }', {}, {}, '/graphql');
+  assert.equal(batchedRes.response.status, 400);
+
+  // Admins see the full admin operations manifest
+  const manifest = await call('{applicationOperations{field method path}}', {}, { authorization: 'Bearer admin-token' });
   const ops = manifest.body.data.applicationOperations;
   const signatures = new Set(ops.map(op => `${op.method} ${op.path}`));
 

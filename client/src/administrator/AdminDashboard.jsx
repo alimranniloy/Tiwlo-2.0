@@ -13,7 +13,7 @@ import RecentActivities from './RecentActivities';
 import PlatformStoresOverview from './PlatformStoresOverview';
 import CloudOverview from './CloudOverview';
 import QuickActions from './QuickActions';
-import SystemInfoCard from './SystemInfoCard';
+import SystemInfoCard, { ClusterHardwareCapacityCard } from './SystemInfoCard';
 import AdminCustomersView from './AdminCustomersView';
 import AdminUserLocationsView from './AdminUserLocationsView';
 import AdminUsersView from './AdminUsersView';
@@ -31,6 +31,8 @@ import AdminDnsView from './AdminDnsView';
 import AdminSystemOrdersView from './AdminSystemOrdersView';
 import AdminDomainsView from './AdminDomainsView';
 import AdminServersView from './AdminServersView';
+import AdminServerPackagesPage from './AdminServerPackagesPage';
+import AdminServerAllocationPage from './AdminServerAllocationPage';
 import AdminLogsView from './AdminLogsView';
 import AdminSystemSettingsView from './AdminSystemSettingsView';
 import AdminStaffSupportView from './AdminStaffSupportView';
@@ -95,6 +97,10 @@ function AdminDashboardContent({
   const [staffAccess, setStaffAccess] = useState(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const [safetyTelemetry, setSafetyTelemetry] = useState(null);
+  const [fleetLiveStatus, setFleetLiveStatus] = useState(null);
+  const [fleetNodesData, setFleetNodesData] = useState(null);
+  const [fleetLoading, setFleetLoading] = useState(true);
+  const [fleetError, setFleetError] = useState('');
   const [userProfileOrigin, setUserProfileOrigin] = useState('customers');
   const { isDark: isDarkMode, toggleTheme: toggleDarkMode } = useTheme();
   const { currency, activeRate, warning: rateWarning } = useAdminCurrency();
@@ -206,6 +212,91 @@ function AdminDashboardContent({
     return undefined;
   }, [ipBlockedMessage]);
 
+  const fetchClusterCapacity = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setFleetLoading(true);
+      try {
+        const token = localStorage.getItem('stockpro_session');
+        const requestOptions = {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        };
+
+        const [liveResult, nodesResult] = await Promise.allSettled([
+          fetch(`${API_BASE}/admin/fleet/live-status`, requestOptions),
+          fetch(`${API_BASE}/admin/fleet/nodes?pageSize=200`, requestOptions)
+        ]);
+
+        const errors = [];
+
+        if (liveResult.status === 'fulfilled') {
+          const liveRes = liveResult.value;
+          const liveJson = await liveRes.json().catch(() => ({}));
+          if (isAddressVerificationRequiredPayload(liveRes.status, liveJson)) {
+            onRequireAddressVerification?.();
+            return;
+          }
+          if (isIpBlockedPayload(liveRes.status, liveJson)) {
+            setFleetLiveStatus(null);
+            setFleetNodesData(null);
+            onIpBlocked(liveJson?.error || 'Your IP is not whitelisted');
+            return;
+          }
+          if (!liveRes.ok || liveJson.success === false) {
+            setFleetLiveStatus(null);
+            errors.push(liveJson.error || `Fleet live status failed (${liveRes.status}).`);
+          } else {
+            setFleetLiveStatus(liveJson);
+          }
+        } else {
+          setFleetLiveStatus(null);
+          errors.push(liveResult.reason?.message || 'Fleet live status unavailable.');
+        }
+
+        if (nodesResult.status === 'fulfilled') {
+          const nodesRes = nodesResult.value;
+          const nodesJson = await nodesRes.json().catch(() => ({}));
+          if (isAddressVerificationRequiredPayload(nodesRes.status, nodesJson)) {
+            onRequireAddressVerification?.();
+            return;
+          }
+          if (isIpBlockedPayload(nodesRes.status, nodesJson)) {
+            setFleetLiveStatus(null);
+            setFleetNodesData(null);
+            onIpBlocked(nodesJson?.error || 'Your IP is not whitelisted');
+            return;
+          }
+          if (!nodesRes.ok || nodesJson.success === false) {
+            setFleetNodesData(null);
+            errors.push(nodesJson.error || `Fleet nodes request failed (${nodesRes.status}).`);
+          } else {
+            setFleetNodesData(nodesJson);
+          }
+        } else {
+          setFleetNodesData(null);
+          errors.push(nodesResult.reason?.message || 'Fleet nodes telemetry unavailable.');
+        }
+
+        setFleetError(errors.join(' '));
+      } catch (err) {
+        console.error('[Admin] Error fetching cluster hardware capacity:', err);
+        setFleetLiveStatus(null);
+        setFleetNodesData(null);
+        setFleetError(err?.message || 'Cluster hardware telemetry could not be loaded.');
+      } finally {
+        setFleetLoading(false);
+      }
+    },
+    [onIpBlocked, onRequireAddressVerification]
+  );
+
+  useEffect(() => {
+    if (ipBlockedMessage || activeView !== 'dashboard') return undefined;
+    fetchClusterCapacity();
+    const timer = setInterval(() => fetchClusterCapacity({ silent: true }), 15000);
+    return () => clearInterval(timer);
+  }, [activeView, fetchClusterCapacity, ipBlockedMessage]);
+
   const filteredActivities = useMemo(() => {
     const raw = adminData?.recentActivities;
     if (!Array.isArray(raw)) return raw;
@@ -239,6 +330,7 @@ function AdminDashboardContent({
                 onRetryIpCheck();
                 fetchStaffMe();
                 fetchOverview(selectedRange);
+                fetchClusterCapacity();
               }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900"
             >
@@ -346,6 +438,24 @@ function AdminDashboardContent({
     }
     if (activeView === 'servers') {
       return <AdminServersView onBackToDashboard={() => handleNavigate('dashboard')} />;
+    }
+    if (activeView === 'server-packages') {
+      return (
+        <AdminServerPackagesPage
+          onBackToDashboard={() => handleNavigate('dashboard')}
+          onNavigate={handleNavigate}
+          showToast={showToast}
+        />
+      );
+    }
+    if (activeView === 'server-allocation') {
+      return (
+        <AdminServerAllocationPage
+          onBackToDashboard={() => handleNavigate('dashboard')}
+          onNavigate={handleNavigate}
+          showToast={showToast}
+        />
+      );
     }
     if (activeView === 'logs') {
       return <AdminLogsView onBackToDashboard={() => handleNavigate('dashboard')} showToast={showToast} />;
@@ -687,6 +797,20 @@ function AdminDashboardContent({
             <p className="mt-0.5 text-[11px] text-neutral-500">Flagged rings &amp; audits →</p>
           </button>
         </div>
+
+        {/* Live Cluster Hardware Capacity (Primary Host + All-Server Pool Totals) */}
+        <ClusterHardwareCapacityCard
+          liveStatus={fleetLiveStatus}
+          nodesData={fleetNodesData}
+          loading={fleetLoading}
+          error={fleetError}
+          onRefresh={() => fetchClusterCapacity()}
+          onViewServers={
+            isAdminViewPermitted('servers', effectiveStaffAccess)
+              ? () => handleNavigate('servers')
+              : undefined
+          }
+        />
 
         {/* Middle Section: Platform Cash vs Free Credit Flow + Revenue Mix + Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

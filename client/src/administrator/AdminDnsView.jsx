@@ -276,28 +276,31 @@ export default function AdminDnsView({ showToast }) {
                   <td className="px-3 py-3">
                     <span
                       className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                        record.enabled
-                          ? 'border-[#1ED760]/30 bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]'
-                          : 'border-neutral-200 bg-neutral-100 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400'
+                        record.isSystem
+                          ? 'border-amber-500/30 bg-amber-500/12 text-amber-700 dark:text-amber-300'
+                          : record.enabled
+                            ? 'border-[#1ED760]/30 bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]'
+                            : 'border-neutral-200 bg-neutral-100 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400'
                       }`}
                     >
-                      {record.enabled ? (record.isSystem ? 'System' : 'Active') : 'Disabled'}
+                      {record.isSystem ? 'System Locked' : record.enabled ? 'Active' : 'Disabled'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex gap-1.5">
                       <button
                         type="button"
-                        title="Edit"
+                        title={record.isSystem ? 'System record is locked and auto-protected' : 'Edit'}
+                        disabled={record.isSystem}
                         onClick={() => beginEdit(record)}
-                        className="rounded-lg border border-neutral-200/80 p-1.5 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                        className="rounded-lg border border-neutral-200/80 p-1.5 text-neutral-600 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
                         type="button"
-                        title="Delete"
-                        disabled={!record.enabled || saving}
+                        title={record.isSystem ? 'Critical system DNS records cannot be deleted' : 'Delete'}
+                        disabled={record.isSystem || !record.enabled || saving}
                         onClick={() =>
                           mutate(
                             `/admin/dns/records/${encodeURIComponent(record.id)}`,
@@ -306,7 +309,7 @@ export default function AdminDnsView({ showToast }) {
                             'DNS record disabled.'
                           )
                         }
-                        className="rounded-lg border border-neutral-200/80 p-1.5 text-rose-600 hover:bg-rose-50 disabled:opacity-40 dark:border-neutral-800 dark:hover:bg-rose-950/30"
+                        className="rounded-lg border border-neutral-200/80 p-1.5 text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-800 dark:hover:bg-rose-950/30"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

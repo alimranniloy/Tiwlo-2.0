@@ -144,10 +144,11 @@ class MultiLaneInspectionQueue extends EventEmitter {
    * Multi-lane parallel orchestrator loop
    */
   startWorkerPool() {
-    setInterval(() => {
+    const timer = setInterval(() => {
       this.triggerWorkers();
       this.cleanOldTickets();
     }, 500);
+    timer.unref?.();
   }
 
   /**

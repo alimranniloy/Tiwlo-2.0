@@ -19,7 +19,6 @@ import {
   LayoutGrid,
   Mail,
   MessageCircle,
-  PanelsTopLeft,
   Plus,
   Server,
   ShieldAlert,
@@ -59,11 +58,6 @@ export default function CloudSidebar({
     onNavigateTab?.(tab);
   };
 
-  const openTPanel = () => {
-    closeMobile();
-    window.open('/tpanel', '_blank', 'noopener,noreferrer');
-  };
-
   const groups = [
     {
       label: 'Overview',
@@ -90,7 +84,6 @@ export default function CloudSidebar({
         { id: 'domains', label: 'Domains', icon: Globe },
         { id: 'create-droplet', label: 'Create Droplet', icon: Plus, action: onOpenCreateDroplet },
         { id: 'my-droplets', label: 'My Droplets', icon: Server },
-        { id: 'tpanel-login', label: 'TPanel Control Panel', icon: PanelsTopLeft, badge: 'Pro', action: openTPanel },
         { id: 'images', label: 'Images', icon: Image },
         { id: 'snapshots', label: 'Snapshots', icon: Camera },
         { id: 'backups', label: 'Backups', icon: Archive },

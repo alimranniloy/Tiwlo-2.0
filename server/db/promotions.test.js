@@ -144,3 +144,42 @@ test('targeted promo codes enforce assigned users, min topup, and multi-device b
   assert.equal(sharedDeviceAbuse.code, 'PROMO_DEVICE_ABUSE');
   assert.equal(sharedDeviceAbuse.shouldBanAccount, true);
 });
+
+test('cloud voucher redemption credits promotional_credits strictly separated from cash credits', async t => {
+  const { getPgPool } = await import('./postgres.js');
+  const { BillingDB } = await import('./billing.js');
+
+  let capturedVoucherSql = '';
+  t.mock.method(BillingDB, 'getBillingAccount', async () => ({
+    userId: 'usr-promo-1',
+    credits: 25,
+    promotionalCredits: 0
+  }));
+  t.mock.method(getPgPool(), 'query', async (sql) => {
+    const text = String(sql || '');
+    if (text.includes('system_promo_codes')) {
+      return { rows: [] };
+    }
+    if (text.includes('claimed_voucher')) {
+      capturedVoucherSql = text;
+      return {
+        rows: [{
+          id: 'vch_1',
+          amount: 2000,
+          credits: 25,
+          promotional_credits: 2000,
+          promotional_expires_at: new Date(Date.now() + 86400_000).toISOString()
+        }]
+      };
+    }
+    return { rows: [] };
+  });
+
+  const result = await BillingDB.redeemVoucher('usr-promo-1', 'PROMO2000');
+  assert.equal(result.success, true);
+  assert.equal(result.rewardType, 'promo_credit');
+  assert.equal(result.addedCredits, 2000);
+  assert.equal(result.balance, 25);
+  assert.match(capturedVoucherSql, /promotional_credits\s*=\s*COALESCE/i);
+  assert.doesNotMatch(capturedVoucherSql, /credits\s*=\s*COALESCE\(cloud_billing_accounts\.credits/i);
+});

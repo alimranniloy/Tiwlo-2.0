@@ -175,7 +175,7 @@ export function createSupportRouter(deps = {}) {
     }
   });
 
-  router.post('/guest/session', async (req, res) => {
+  router.post('/guest/session', securityLimiters.supportAiChat, async (req, res) => {
     try {
       const toggles = await ticketing.getSupportToggles();
       if (!toggles.guestTicketingEnabled) {
@@ -807,7 +807,9 @@ export function createSupportRouter(deps = {}) {
           }
         };
 
-        let replyText = `Hello ${verifiedUserName}, thank you for reaching out to Tiwlo Support. We are reviewing your request now.`;
+        let replyText = typeof TiwiAI.generateLocalFallback === 'function'
+          ? TiwiAI.generateLocalFallback(String(text).trim(), 'Tiwi Support AI')
+          : `Hello ${verifiedUserName}, thank you for reaching out to Tiwlo Support. We are reviewing your request now.`;
         try {
           const history = conv.messages.slice(-8).map((m) => ({
             role: m.sender === 'user' ? 'user' : 'model',
@@ -917,7 +919,7 @@ export function createSupportRouter(deps = {}) {
   });
 
   // 6. Initiate support session with ticket serial & personalized greeting (enforces auth or guest contact!)
-  router.post('/initiate', async (req, res) => {
+  router.post('/initiate', securityLimiters.supportAiChat, async (req, res) => {
     try {
       const toggles = await ticketing.getSupportToggles();
       if (!toggles.liveChatWidgetEnabled) {
@@ -1004,7 +1006,7 @@ export function createSupportRouter(deps = {}) {
   });
 
   // 7. Multi-Tier Support Handover Endpoint (Tier 1 -> Tier 2 -> Tier 3)
-  router.post('/transfer', async (req, res) => {
+  router.post('/transfer', securityLimiters.supportAiChat, async (req, res) => {
     try {
       const { targetTier = 2, currentAgentId, userName = 'Customer', activeTicketId = null } = req.body || {};
       const newTier = Math.min(3, Math.max(1, parseInt(targetTier, 10) || 2));
@@ -1045,7 +1047,7 @@ export function createSupportRouter(deps = {}) {
   });
 
   // 8. Send message & get response via Tiwi AI Engine (enforces auth or verified guest + closed lock)
-  router.post('/message', async (req, res) => {
+  router.post('/message', securityLimiters.supportAiChat, async (req, res) => {
     try {
       const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: true });
       const {
@@ -1183,7 +1185,9 @@ export function createSupportRouter(deps = {}) {
           lower.includes('error') || lower.includes('bug') || lower.includes('crash') ||
           lower.includes('kernel') || lower.includes('firewall') || lower.includes('dns') ||
           lower.includes('ssh') || lower.includes('root') || lower.includes('ip address') ||
-          lower.includes('database schema') || lower.includes('server down') || lower.includes('hang')
+          lower.includes('database schema') || lower.includes('server down') || lower.includes('hang') ||
+          lower.includes('ত্রুটি') || lower.includes('ফায়ারওয়াল') || lower.includes('ফায়ারওয়াল') ||
+          lower.includes('ডিএনএস') || lower.includes('এসএসএইচ') || lower.includes('সার্ভার ডাউন')
         ) {
           shouldOfferTransfer = true;
           transferToTier = 2;
@@ -1212,7 +1216,11 @@ export function createSupportRouter(deps = {}) {
   // 9. Brain diagnostic status endpoint
   router.get('/brain-status', async (req, res) => {
     try {
-      const userId = req.activeUser?.id || req.user?.id || req.session?.userId || null;
+      const authUser = getAuthenticatedSupportUser(req);
+      if (!authUser) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+      const userId = authUser.id;
       const state = await SystemBrain.scanUserSystemState(userId);
       res.json({
         status: 'active',

@@ -1,7 +1,13 @@
 import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
+import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
+import os from 'node:os';
 import { getPgPool, isPgActive, queryPg } from '../db/postgres.js';
+import { isPublicRoutableIpv4 } from '../ubuntu/sshGatewayService.js';
+import { parseIpv6ToBigInt, reconcileNodeIpv6PrefixChange } from '../ubuntu/ipv6PoolService.js';
 
 const CREDENTIAL_AAD = Buffer.from('tiwlo-server-fleet-credentials-v1');
 const HKDF_SALT = Buffer.from('tiwlo-server-fleet-hkdf-salt-v1');
@@ -13,7 +19,10 @@ const HMAC_INFO = Buffer.from('tiwlo-server-fleet-hmac-v1');
 // When unset in local dev or unit tests, an ephemeral runtime CSPRNG key is used.
 const EPHEMERAL_RUNTIME_SECRET = crypto.randomBytes(32).toString('hex');
 
+export const PRIMARY_NODE_ID = 'primary-ubuntu-node';
+
 export const PANEL_TYPES = Object.freeze([
+  'ubuntu_node',
   'tiwlo_panel',
   'cpanel_whm',
   'kvm_hypervisor',
@@ -59,6 +68,32 @@ export const NODE_STATUSES = Object.freeze([
 ]);
 
 export const PANEL_BLUEPRINTS = Object.freeze({
+  ubuntu_node: Object.freeze({
+    panelType: 'ubuntu_node',
+    label: 'Tiwlo Ubuntu Compute Node',
+    category: 'compute_node',
+    defaultApiPort: 9443,
+    defaultSshPort: 22,
+    defaultConnectivityMode: 'http_health',
+    requiredAuthType: 'bearer_token',
+    supportedAuthTypes: ['bearer_token', 'ssh_key', 'tiwlo_agent_key'],
+    healthEndpointDefault: '/agent/v1/health',
+    protocol: 'HTTP/TLS Agent (Port 9443) + SSH Ed25519 Mesh',
+    howItWorks:
+      'Connects any Ubuntu/Linux server to the Tiwlo Cluster Pool. Runs systemd tiwlo-node-agent on port 9443 (persistent across reboots), pools CPU/RAM/NVMe storage with automatic overflow placement, and reports live IPv4/IPv6 and OS image telemetry.',
+    provisioningCapabilities: [
+      'shared_runtime_containers',
+      'auto_failover',
+      'load_balancing',
+      'storage_overflow',
+      'multi_ip_detection'
+    ],
+    setupSteps: [
+      'Provide Node Name, IP/Host, Region, and SSH credentials in Add Server Node.',
+      'Tiwlo connects over SSH, detects CPU/RAM/Storage/IPv4/IPv6/OS, and installs Docker + persistent systemd tiwlo-node-agent.',
+      'The new server immediately joins the cluster pool with auto-failover and load-balanced scheduling.'
+    ]
+  }),
   tiwlo_panel: Object.freeze({
     panelType: 'tiwlo_panel',
     label: 'Tiwlo Control Panel (TPanel)',
@@ -286,7 +321,14 @@ const monitorState = {
   isSweepInFlight: false,
   lastSweepAt: null,
   lastSweepSummary: null,
-  lastSweepError: null
+  lastSweepError: null,
+  autoFailoverCount: 0,
+  selfHealedCount: 0,
+  lastFailoverAt: null,
+  lastHealedAt: null,
+  lastRebalanceAt: null,
+  activeAlerts: [],
+  backupEnabled: false
 };
 
 export function stopFleetConnectivityMonitor() {
@@ -313,6 +355,13 @@ export function resetInMemoryServerFleetForTests() {
   monitorState.lastSweepAt = null;
   monitorState.lastSweepSummary = null;
   monitorState.lastSweepError = null;
+  monitorState.autoFailoverCount = 0;
+  monitorState.selfHealedCount = 0;
+  monitorState.lastFailoverAt = null;
+  monitorState.lastHealedAt = null;
+  monitorState.lastRebalanceAt = null;
+  monitorState.activeAlerts = [];
+  monitorState.backupEnabled = false;
 }
 
 function getSecretMaterial() {
@@ -493,36 +542,54 @@ function parseIpv6Groups(rawIp) {
   return parsed;
 }
 
+function isPublicGlobalIpv6(rawIp) {
+  try {
+    if (!net.isIPv6(String(rawIp || '').trim())) return false;
+    const { value } = parseIpv6ToBigInt(String(rawIp).trim());
+    return (value >> 125n) === 1n; // Strictly Global Unicast 2000::/3
+  } catch {
+    return false;
+  }
+}
+
 function normalizeIpv4Candidate(rawIp) {
   const lower = String(rawIp || '').trim().toLowerCase().split('%')[0];
   if (net.isIPv4(lower)) return lower;
   if (net.isIPv6(lower)) {
     const g = parseIpv6Groups(lower);
-    if (g && g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0xffff) {
+    if (!g) return null;
+    // ::ffff:0:0/96 IPv4-mapped & ::/96 IPv4-compatible
+    if (g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && (g[5] === 0xffff || (g[5] === 0 && (g[6] !== 0 || g[7] > 1)))) {
       return `${g[6] >> 8}.${g[6] & 0xff}.${g[7] >> 8}.${g[7] & 0xff}`;
     }
-    if (g && g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0) {
+    // 64:ff9b::/96 NAT64
+    if (g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0) {
       return `${g[6] >> 8}.${g[6] & 0xff}.${g[7] >> 8}.${g[7] & 0xff}`;
+    }
+    // 2002::/16 6to4 embedded IPv4
+    if (g[0] === 0x2002) {
+      return `${g[1] >> 8}.${g[1] & 0xff}.${g[2] >> 8}.${g[2] & 0xff}`;
     }
   }
   return null;
 }
 
-export function isBlockedMetadataOrSsrfIp(rawIp) {
+export function isBlockedMetadataOrSsrfIp(rawIp, { allowLoopback = false } = {}) {
   const ip = String(rawIp || '').trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
   if (!ip) return false;
   if (BLOCKED_METADATA_HOSTS.has(ip)) return true;
+  if (!allowLoopback && (ip === 'localhost' || ip === 'localhost.localdomain' || ip === '::1')) {
+    return true;
+  }
 
   const v4 = normalizeIpv4Candidate(ip);
   if (v4) {
     const octets = v4.split('.').map(Number);
-    // Block 169.254.0.0/16 (cloud metadata / link-local), 100.100.100.200 (Alibaba metadata),
-    // 0.0.0.0/8 (unspecified), and 255.255.255.255 (broadcast).
-    // Intentionally allows admin RFC1918 fleet nodes and public Cloudflare IPs.
     if (octets[0] === 169 && octets[1] === 254) return true;
     if (v4 === '100.100.100.200') return true;
     if (octets[0] === 0) return true;
-    if (v4 === '255.255.255.255') return true;
+    if (!allowLoopback && octets[0] === 127) return true;
+    if (v4 === '255.255.255.255' || octets[0] >= 224) return true;
     return false;
   }
 
@@ -530,11 +597,14 @@ export function isBlockedMetadataOrSsrfIp(rawIp) {
     const g = parseIpv6Groups(ip);
     if (!g) return true;
     if (g.every((part) => part === 0)) return true; // ::
+    if (!allowLoopback && g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0 && g[6] === 0 && g[7] === 1) {
+      return true; // ::1
+    }
     if (g[0] === 0xfd00 && g[1] === 0x0ec2 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0 && g[6] === 0 && g[7] === 0x0254) {
       return true; // fd00:ec2::254 AWS IPv6 metadata
     }
-    // Link-local fe80::/10
-    if ((g[0] & 0xffc0) === 0xfe80) return true;
+    if ((g[0] & 0xffc0) === 0xfe80) return true; // Link-local fe80::/10
+    if ((g[0] & 0xff00) === 0xff00) return true; // Multicast ff00::/8
   }
 
   return false;
@@ -542,12 +612,12 @@ export function isBlockedMetadataOrSsrfIp(rawIp) {
 
 const HOSTNAME_REGEX = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*\.?$/i;
 
-function assertSafeHostname(rawHostname, label = 'hostname') {
+function assertSafeHostname(rawHostname, label = 'hostname', { allowLoopback = false } = {}) {
   const clean = String(rawHostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
   const trimmedHost = clean.replace(/\.+$/, '');
   if (!trimmedHost) throw makeValidationError(`${label} is required.`);
-  if (BLOCKED_METADATA_HOSTS.has(trimmedHost) || isBlockedMetadataOrSsrfIp(trimmedHost)) {
-    throw makeValidationError(`${label} cannot target restricted cloud metadata or link-local addresses.`);
+  if (BLOCKED_METADATA_HOSTS.has(trimmedHost) || isBlockedMetadataOrSsrfIp(trimmedHost, { allowLoopback })) {
+    throw makeValidationError(`${label} cannot target restricted cloud metadata, loopback, or link-local addresses.`);
   }
   if (net.isIP(trimmedHost)) return trimmedHost;
   if (!HOSTNAME_REGEX.test(clean)) {
@@ -556,7 +626,7 @@ function assertSafeHostname(rawHostname, label = 'hostname') {
   return trimmedHost;
 }
 
-function assertSafeIpAddress(rawIp, label = 'ipAddress', { required = true } = {}) {
+function assertSafeIpAddress(rawIp, label = 'ipAddress', { required = true, allowLoopback = false } = {}) {
   const clean = String(rawIp || '').trim().replace(/^\[|\]$/g, '');
   if (!clean) {
     if (required) throw makeValidationError(`${label} is required.`);
@@ -565,8 +635,8 @@ function assertSafeIpAddress(rawIp, label = 'ipAddress', { required = true } = {
   if (!net.isIP(clean)) {
     throw makeValidationError(`${label} must be a valid IPv4 or IPv6 address.`);
   }
-  if (isBlockedMetadataOrSsrfIp(clean)) {
-    throw makeValidationError(`${label} cannot target restricted cloud metadata or link-local addresses.`);
+  if (isBlockedMetadataOrSsrfIp(clean, { allowLoopback })) {
+    throw makeValidationError(`${label} cannot target restricted cloud metadata, loopback, or link-local addresses.`);
   }
   return clean;
 }
@@ -658,7 +728,7 @@ function normalizeCreatePayload(rawInput = {}) {
     throw makeValidationError('Server name is required and must be 160 characters or fewer.');
   }
 
-  const panelType = String(input.panelType || input.panel_type || '').trim();
+  const panelType = String(input.panelType || input.panel_type || 'ubuntu_node').trim();
   if (!PANEL_TYPES.includes(panelType)) {
     throw makeValidationError(`panelType must be one of: ${PANEL_TYPES.join(', ')}.`);
   }
@@ -669,16 +739,17 @@ function normalizeCreatePayload(rawInput = {}) {
     throw makeValidationError(`serverRole must be one of: ${SERVER_ROLES.join(', ')}.`);
   }
 
-  const hostname = assertSafeHostname(input.hostname, 'hostname');
-  const ipAddress = assertSafeIpAddress(input.ipAddress ?? input.ip_address, 'ipAddress', { required: true });
-  const ipv6Address = assertSafeIpAddress(input.ipv6Address ?? input.ipv6_address, 'ipv6Address', { required: false });
-
   const connectivityMode = String(
     input.connectivityMode || input.connectivity_mode || blueprint.defaultConnectivityMode || 'tcp_probe'
   ).trim();
   if (!CONNECTIVITY_MODES.includes(connectivityMode)) {
     throw makeValidationError(`connectivityMode must be one of: ${CONNECTIVITY_MODES.join(', ')}.`);
   }
+
+  const allowLoopback = connectivityMode === 'tcp_probe' && process.env.NODE_ENV !== 'production';
+  const hostname = assertSafeHostname(input.hostname, 'hostname', { allowLoopback });
+  const ipAddress = assertSafeIpAddress(input.ipAddress ?? input.ip_address, 'ipAddress', { required: true, allowLoopback });
+  const ipv6Address = assertSafeIpAddress(input.ipv6Address ?? input.ipv6_address, 'ipv6Address', { required: false, allowLoopback });
 
   const authType = String(input.authType || input.auth_type || blueprint.requiredAuthType || 'api_token').trim();
   if (!AUTH_TYPES.includes(authType)) {
@@ -752,19 +823,47 @@ function normalizeCreatePayload(rawInput = {}) {
   };
 }
 
+function parseCapabilitiesJson(raw) {
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return raw && typeof raw === 'object' ? raw : {};
+}
+
+function normalizeNetworkAddresses(rawAddrs, fallbackIpv4, fallbackIpv6) {
+  const v4Set = new Set(Array.isArray(rawAddrs?.ipv4) ? rawAddrs.ipv4.map((v) => String(v || '').trim()).filter(Boolean) : []);
+  const v6Set = new Set(Array.isArray(rawAddrs?.ipv6) ? rawAddrs.ipv6.map((v) => String(v || '').trim()).filter(Boolean) : []);
+  if (fallbackIpv4) v4Set.add(String(fallbackIpv4).trim());
+  if (fallbackIpv6) v6Set.add(String(fallbackIpv6).trim());
+  return { ipv4: Array.from(v4Set), ipv6: Array.from(v6Set) };
+}
+
 function toSafeNodeDto(row) {
   if (!row) return null;
   const { hasCredentials, credentialHint } = extractCredentialSummary(row.credentials_ciphertext);
-  const capabilities = typeof row.capabilities_json === 'string'
-    ? (() => { try { return JSON.parse(row.capabilities_json); } catch { return {}; } })()
-    : (row.capabilities_json && typeof row.capabilities_json === 'object' ? row.capabilities_json : {});
+  const capabilities = parseCapabilitiesJson(row.capabilities_json);
+  const networkAddresses = normalizeNetworkAddresses(capabilities.networkAddresses, row.ip_address, row.ipv6_address);
+  const storageGb = Number(row.storage_gb);
+  const storageFreeGb = Number.isFinite(Number(capabilities.storageFreeGb))
+    ? Number(capabilities.storageFreeGb)
+    : null;
+  const storageUsedGb = storageFreeGb !== null
+    ? Math.max(0, Number((storageGb - storageFreeGb).toFixed(1)))
+    : null;
 
   return {
     id: row.id,
+    isPrimary: row.id === PRIMARY_NODE_ID || capabilities.isPrimary === true,
     name: row.name,
     hostname: row.hostname,
     ipAddress: row.ip_address,
-    ipv6Address: row.ipv6_address || null,
+    ipv6Address: row.ipv6_address || networkAddresses.ipv6[0] || null,
+    networkAddresses,
     panelType: row.panel_type,
     serverRole: row.server_role,
     panelUrl: row.panel_url || null,
@@ -777,7 +876,14 @@ function toSafeNodeDto(row) {
     provider: row.provider || null,
     cpuCores: Number(row.cpu_cores),
     ramGb: Number(row.ram_gb),
-    storageGb: Number(row.storage_gb),
+    ramFreeGb: Number.isFinite(Number(capabilities.ramFreeGb)) ? Number(capabilities.ramFreeGb) : null,
+    storageGb,
+    storageFreeGb,
+    storageUsedGb,
+    detectedOsId: capabilities.detectedOsId || null,
+    detectedOsName: capabilities.detectedOsName || null,
+    timezone: capabilities.timezone || null,
+    loadPct: Number.isFinite(Number(capabilities.loadPct)) ? Number(capabilities.loadPct) : null,
     maxDroplets: Number(row.max_droplets),
     activeDroplets: Number(row.active_droplets),
     autoProvisionEnabled: Boolean(row.auto_provision_enabled),
@@ -891,6 +997,13 @@ export async function ensureServerFleetSchema() {
 
       CREATE INDEX IF NOT EXISTS idx_server_connectivity_logs_node_created
         ON system_server_connectivity_logs (node_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS system_server_fleet_settings (
+        key TEXT PRIMARY KEY,
+        value JSONB NOT NULL DEFAULT '{}'::jsonb,
+        updated_by TEXT,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     pgSchemaReady = true;
     return { ok: true, mode: 'postgres' };
@@ -975,6 +1088,221 @@ export async function getServerNodeById(id) {
   return toSafeNodeDto(row);
 }
 
+function readLocalLinuxOsRelease() {
+  try {
+    if (process.platform !== 'linux' || !fs.existsSync('/etc/os-release')) return null;
+    const raw = fs.readFileSync('/etc/os-release', 'utf8');
+    const idMatch = raw.match(/^ID=["']?([a-z0-9._-]+)["']?/im);
+    const verMatch = raw.match(/^VERSION_ID=["']?([0-9.]+)["']?/im);
+    const prettyMatch = raw.match(/^PRETTY_NAME=["']?([^"\n]+)["']?/im);
+    const id = idMatch ? idMatch[1].toLowerCase() : 'ubuntu';
+    const ver = verMatch ? verMatch[1] : '24.04';
+    return {
+      detectedOsId: id === 'ubuntu' ? `ubuntu-${ver}` : `${id}-${ver}`,
+      detectedOsName: prettyMatch ? prettyMatch[1].trim() : `${id} ${ver}`
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function detectLocalHostHardware() {
+  const cpus = os.cpus() || [];
+  const cpuCores = Math.max(1, cpus.length || 1);
+  const totalMemGb = Math.max(1, Math.round(os.totalmem() / (1024 ** 3)));
+  const ramFreeGb = Math.max(0, Number((os.freemem() / (1024 ** 3)).toFixed(1)));
+  let storageGb = Number(process.env.PRIMARY_NODE_STORAGE_GB || 0);
+  let storageFreeGb = null;
+
+  try {
+    if (typeof fs.statfsSync === 'function') {
+      const targetPath = process.platform === 'win32' ? (process.cwd().slice(0, 3) || 'C:\\') : '/';
+      const stats = fs.statfsSync(targetPath);
+      const bsize = Number(stats.bsize || 4096);
+      const totalBytes = Number(stats.blocks || 0) * bsize;
+      const freeBytes = Number(stats.bavail ?? stats.bfree ?? 0) * bsize;
+      if (totalBytes > 0) {
+        storageGb = Math.max(1, Math.round(totalBytes / (1024 ** 3)));
+        storageFreeGb = Math.max(0, Number((freeBytes / (1024 ** 3)).toFixed(1)));
+      }
+    }
+  } catch {
+    // Fallback if statfsSync is unavailable
+  }
+  if (!Number.isFinite(storageGb) || storageGb <= 0) {
+    storageGb = 100;
+  }
+
+  const ipv4List = [];
+  const ipv6List = [];
+  const ifaces = os.networkInterfaces();
+  for (const entries of Object.values(ifaces)) {
+    for (const iface of entries || []) {
+      if (!iface || iface.internal) continue;
+      const addr = String(iface.address || '').split('%')[0].trim();
+      if (!addr || isBlockedMetadataOrSsrfIp(addr)) continue;
+      if (iface.family === 'IPv4' || iface.family === 4) {
+        if (!ipv4List.includes(addr)) ipv4List.push(addr);
+      } else if (iface.family === 'IPv6' || iface.family === 6) {
+        if (!ipv6List.includes(addr)) ipv6List.push(addr);
+      }
+    }
+  }
+  if (ipv4List.length === 0) ipv4List.push('127.0.0.1');
+
+  const osRelease = readLocalLinuxOsRelease();
+  const detectedOsId = process.env.PRIMARY_NODE_OS_ID
+    || osRelease?.detectedOsId
+    || 'ubuntu-24.04';
+  const detectedOsName = osRelease?.detectedOsName || `Ubuntu 24.04 LTS (${os.type()})`;
+  const hostnameRaw = String(os.hostname() || 'tiwlo-primary').toLowerCase().replace(/[^a-z0-9.-]/g, '-');
+  const hostname = HOSTNAME_REGEX.test(hostnameRaw) ? hostnameRaw : 'tiwlo-primary.local';
+  const loadAvg = os.loadavg ? Number((os.loadavg()[0] || 0).toFixed(2)) : 0;
+  const loadPct = Math.min(100, Math.round((loadAvg / cpuCores) * 100));
+  let timezone = 'UTC';
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    timezone = 'UTC';
+  }
+
+  return {
+    hostname,
+    ipAddress: ipv4List[0],
+    ipv6Address: ipv6List[0] || null,
+    networkAddresses: { ipv4: ipv4List, ipv6: ipv6List },
+    cpuCores,
+    ramGb: totalMemGb,
+    ramFreeGb,
+    storageGb,
+    storageFreeGb,
+    detectedOsId,
+    detectedOsName,
+    timezone,
+    loadPct,
+    region: String(process.env.PRIMARY_NODE_REGION || process.env.TIWLO_REGION || 'bd1').trim().toLowerCase()
+  };
+}
+
+export async function ensurePrimaryLocalServerNode() {
+  const hw = detectLocalHostHardware();
+  const baseCapabilities = {
+    ...PANEL_BLUEPRINTS.ubuntu_node.capabilities,
+    isPrimary: true,
+    detectedOsId: hw.detectedOsId,
+    detectedOsName: hw.detectedOsName,
+    networkAddresses: hw.networkAddresses,
+    ramFreeGb: hw.ramFreeGb,
+    storageFreeGb: hw.storageFreeGb,
+    storageUsedGb: hw.storageFreeGb !== null ? Math.max(0, Number((hw.storageGb - hw.storageFreeGb).toFixed(1))) : null,
+    timezone: hw.timezone,
+    loadPct: hw.loadPct,
+    osImages: Array.from(new Set([hw.detectedOsId, 'ubuntu-24.04']))
+  };
+
+  if (usePg()) {
+    await ensureServerFleetSchema();
+    const existing = await getRawNodeById(PRIMARY_NODE_ID);
+    if (!existing) {
+      await queryPg(
+        `INSERT INTO system_server_nodes (
+          id, name, hostname, ip_address, ipv6_address,
+          panel_type, server_role, panel_url, api_port, ssh_port,
+          health_endpoint, connectivity_mode, region, datacenter, provider,
+          cpu_cores, ram_gb, storage_gb, max_droplets, active_droplets,
+          auto_provision_enabled, routing_weight, auth_type,
+          credentials_ciphertext, capabilities_json, how_it_works,
+          tags, status, last_heartbeat_at, last_latency_ms, created_by
+        ) VALUES (
+          $1, $2, $3, $4, $5,
+          'ubuntu_node', 'app_hosting', NULL, 9443, 22,
+          '/agent/v1/health', 'http_health', $6, 'primary-dc', 'tiwlo-host',
+          $7, $8, $9, 250, 0,
+          TRUE, 120, 'none',
+          NULL, $10::jsonb, $11,
+          $12, 'online', CURRENT_TIMESTAMP, 1, 'system:primary_host'
+        )
+        ON CONFLICT (id) DO NOTHING`,
+        [
+          PRIMARY_NODE_ID,
+          'Primary Cluster Host (Master)',
+          hw.hostname,
+          hw.ipAddress,
+          hw.ipv6Address,
+          hw.region,
+          hw.cpuCores,
+          hw.ramGb,
+          hw.storageGb,
+          JSON.stringify(baseCapabilities),
+          PANEL_BLUEPRINTS.ubuntu_node.howItWorks,
+          ['primary', 'master', 'auto-detected']
+        ]
+      );
+    } else {
+      const mergedCaps = { ...parseCapabilitiesJson(existing.capabilities_json), ...baseCapabilities };
+      await queryPg(
+        `UPDATE system_server_nodes SET
+          hostname = $2,
+          ip_address = $3,
+          ipv6_address = COALESCE($4, ipv6_address),
+          cpu_cores = $5,
+          ram_gb = $6,
+          storage_gb = $7,
+          capabilities_json = $8::jsonb,
+          status = CASE WHEN status = 'maintenance' THEN 'maintenance' ELSE 'online' END,
+          last_heartbeat_at = CURRENT_TIMESTAMP,
+          last_latency_ms = COALESCE(last_latency_ms, 1),
+          updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [PRIMARY_NODE_ID, hw.hostname, hw.ipAddress, hw.ipv6Address, hw.cpuCores, hw.ramGb, hw.storageGb, JSON.stringify(mergedCaps)]
+      );
+    }
+    return getServerNodeById(PRIMARY_NODE_ID);
+  }
+
+  const now = new Date().toISOString();
+  const existingMem = memoryNodes.get(PRIMARY_NODE_ID);
+  const row = {
+    ...(existingMem || {}),
+    id: PRIMARY_NODE_ID,
+    name: existingMem?.name || 'Primary Cluster Host (Master)',
+    hostname: hw.hostname,
+    ip_address: hw.ipAddress,
+    ipv6_address: hw.ipv6Address,
+    panel_type: 'ubuntu_node',
+    server_role: 'app_hosting',
+    panel_url: null,
+    api_port: 9443,
+    ssh_port: 22,
+    health_endpoint: '/agent/v1/health',
+    connectivity_mode: 'http_health',
+    region: existingMem?.region || hw.region,
+    datacenter: existingMem?.datacenter || 'primary-dc',
+    provider: existingMem?.provider || 'tiwlo-host',
+    cpu_cores: hw.cpuCores,
+    ram_gb: hw.ramGb,
+    storage_gb: hw.storageGb,
+    max_droplets: existingMem?.max_droplets ?? 250,
+    active_droplets: existingMem?.active_droplets ?? 0,
+    auto_provision_enabled: true,
+    routing_weight: existingMem?.routing_weight ?? 120,
+    auth_type: 'none',
+    credentials_ciphertext: null,
+    capabilities_json: { ...(parseCapabilitiesJson(existingMem?.capabilities_json)), ...baseCapabilities },
+    how_it_works: PANEL_BLUEPRINTS.ubuntu_node.howItWorks,
+    tags: existingMem?.tags || ['primary', 'master', 'auto-detected'],
+    status: existingMem?.status === 'maintenance' ? 'maintenance' : 'online',
+    last_heartbeat_at: now,
+    last_latency_ms: 1,
+    last_probe_error: null,
+    created_by: existingMem?.created_by || 'system:primary_host',
+    created_at: existingMem?.created_at || now,
+    updated_at: now
+  };
+  memoryNodes.set(PRIMARY_NODE_ID, row);
+  return toSafeNodeDto(row);
+}
+
 function summarizeNodesList(rows) {
   const summary = {
     total: 0,
@@ -987,8 +1315,25 @@ function summarizeNodesList(rows) {
     byRegion: {},
     byRole: {},
     totalMaxDroplets: 0,
-    totalActiveDroplets: 0
+    totalActiveDroplets: 0,
+    totalCpuCores: 0,
+    onlineCpuCores: 0,
+    totalRamGb: 0,
+    onlineRamGb: 0,
+    totalStorageGb: 0,
+    onlineStorageGb: 0,
+    totalStorageFreeGb: 0,
+    totalStorageUsedGb: 0,
+    detectedOsImages: [],
+    onlineRegions: [],
+    allIpv4: [],
+    allIpv6: []
   };
+  const osSet = new Set();
+  const regionSet = new Set();
+  const ipv4Set = new Set();
+  const ipv6Set = new Set();
+
   for (const row of rows) {
     summary.total += 1;
     const st = NODE_STATUSES.includes(row.status) ? row.status : 'unknown';
@@ -998,7 +1343,40 @@ function summarizeNodesList(rows) {
     summary.byRole[row.server_role] = (summary.byRole[row.server_role] || 0) + 1;
     summary.totalMaxDroplets += Number(row.max_droplets || 0);
     summary.totalActiveDroplets += Number(row.active_droplets || 0);
+
+    const cpu = Number(row.cpu_cores || 0);
+    const ram = Number(row.ram_gb || 0);
+    const disk = Number(row.storage_gb || 0);
+    const caps = parseCapabilitiesJson(row.capabilities_json);
+    const freeDisk = Number.isFinite(Number(caps.storageFreeGb)) ? Number(caps.storageFreeGb) : disk;
+    const addrs = normalizeNetworkAddresses(caps.networkAddresses, row.ip_address, row.ipv6_address);
+
+    summary.totalCpuCores += cpu;
+    summary.totalRamGb += ram;
+    summary.totalStorageGb += disk;
+    summary.totalStorageFreeGb = Number((summary.totalStorageFreeGb + freeDisk).toFixed(1));
+    for (const v4 of addrs.ipv4) ipv4Set.add(v4);
+    for (const v6 of addrs.ipv6) ipv6Set.add(v6);
+
+    if (st === 'online' || st === 'degraded') {
+      summary.onlineCpuCores += cpu;
+      summary.onlineRamGb += ram;
+      summary.onlineStorageGb += disk;
+      if (row.region) regionSet.add(String(row.region).toLowerCase());
+      if (caps.detectedOsId) osSet.add(String(caps.detectedOsId).toLowerCase());
+      if (Array.isArray(caps.osImages)) {
+        for (const img of caps.osImages) {
+          if (img) osSet.add(String(img).toLowerCase());
+        }
+      }
+    }
   }
+
+  summary.totalStorageUsedGb = Math.max(0, Number((summary.totalStorageGb - summary.totalStorageFreeGb).toFixed(1)));
+  summary.detectedOsImages = Array.from(osSet);
+  summary.onlineRegions = Array.from(regionSet);
+  summary.allIpv4 = Array.from(ipv4Set);
+  summary.allIpv6 = Array.from(ipv6Set);
   return summary;
 }
 
@@ -1024,6 +1402,7 @@ export async function listServerNodes({
 
   if (usePg()) {
     await ensureServerFleetSchema();
+    await ensurePrimaryLocalServerNode();
     const conditions = [];
     const params = [];
 
@@ -1054,39 +1433,22 @@ export async function listServerNodes({
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const offset = (safePage - 1) * safePageSize;
 
-    const [countRes, listRes, allSummaryRes, panelGroupRes, regionGroupRes, roleGroupRes] = await Promise.all([
+    const [countRes, listRes, allNodesRes] = await Promise.all([
       queryPg(`SELECT COUNT(*)::int AS total FROM system_server_nodes ${whereClause}`, params),
       queryPg(
         `SELECT * FROM system_server_nodes ${whereClause}
-         ORDER BY created_at DESC, id ASC
+         ORDER BY (id = '${PRIMARY_NODE_ID}') DESC, created_at DESC, id ASC
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, safePageSize, offset]
       ),
-      queryPg(`
-        SELECT
-          COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE status = 'online')::int AS online,
-          COUNT(*) FILTER (WHERE status = 'degraded')::int AS degraded,
-          COUNT(*) FILTER (WHERE status = 'offline')::int AS offline,
-          COUNT(*) FILTER (WHERE status = 'maintenance')::int AS maintenance,
-          COUNT(*) FILTER (WHERE status = 'unknown')::int AS unknown,
-          COALESCE(SUM(max_droplets), 0)::bigint AS total_max_droplets,
-          COALESCE(SUM(active_droplets), 0)::bigint AS total_active_droplets
-        FROM system_server_nodes
-      `),
-      queryPg('SELECT panel_type, COUNT(*)::int AS cnt FROM system_server_nodes GROUP BY panel_type'),
-      queryPg('SELECT region, COUNT(*)::int AS cnt FROM system_server_nodes GROUP BY region'),
-      queryPg('SELECT server_role, COUNT(*)::int AS cnt FROM system_server_nodes GROUP BY server_role')
+      queryPg(
+        `SELECT id, status, region, panel_type, server_role, cpu_cores, ram_gb, storage_gb,
+                max_droplets, active_droplets, ip_address, ipv6_address, capabilities_json
+         FROM system_server_nodes`
+      )
     ]);
 
     const total = countRes.rows[0]?.total || 0;
-    const agg = allSummaryRes.rows[0] || {};
-    const byPanelType = {};
-    for (const r of panelGroupRes.rows) byPanelType[r.panel_type] = r.cnt;
-    const byRegion = {};
-    for (const r of regionGroupRes.rows) byRegion[r.region] = r.cnt;
-    const byRole = {};
-    for (const r of roleGroupRes.rows) byRole[r.server_role] = r.cnt;
 
     return {
       nodes: listRes.rows.map(toSafeNodeDto),
@@ -1096,19 +1458,7 @@ export async function listServerNodes({
         total,
         totalPages: Math.max(1, Math.ceil(total / safePageSize))
       },
-      summary: {
-        total: Number(agg.total || 0),
-        online: Number(agg.online || 0),
-        degraded: Number(agg.degraded || 0),
-        offline: Number(agg.offline || 0),
-        maintenance: Number(agg.maintenance || 0),
-        unknown: Number(agg.unknown || 0),
-        byPanelType,
-        byRegion,
-        byRole,
-        totalMaxDroplets: Number(agg.total_max_droplets || 0),
-        totalActiveDroplets: Number(agg.total_active_droplets || 0)
-      }
+      summary: summarizeNodesList(allNodesRes.rows)
     };
   }
 
@@ -1254,6 +1604,24 @@ export async function updateServerNode(id, rawPatch = {}, actorId = null) {
   if (!existing) return null;
 
   const patch = sanitizePlainValue(rawPatch || {});
+  const isPrimaryNode = existing.id === PRIMARY_NODE_ID || Boolean(existing.capabilities_json?.isPrimary);
+  if (isPrimaryNode) {
+    if (patch.status !== undefined && String(patch.status).trim() !== 'online') {
+      throw makeValidationError('Primary cluster host node cannot be taken offline or placed into maintenance.', 403);
+    }
+    if (patch.maxDroplets !== undefined && Number(patch.maxDroplets) <= 0) {
+      throw makeValidationError('Primary cluster host node maxDroplets cannot be set to 0.', 403);
+    }
+    if ((patch.autoProvisionEnabled === false || patch.auto_provision_enabled === false)) {
+      throw makeValidationError('Primary cluster host node auto-provisioning cannot be disabled.', 403);
+    }
+    if (patch.panelUrl !== undefined || patch.panel_url !== undefined) {
+      const requestedPanel = patch.panelUrl ?? patch.panel_url;
+      if (requestedPanel !== null && requestedPanel !== '') {
+        throw makeValidationError('Primary cluster host node probe URL cannot be overridden externally.', 403);
+      }
+    }
+  }
   const next = { ...existing };
 
   if (patch.name !== undefined) {
@@ -1464,6 +1832,20 @@ export async function updateServerNode(id, rawPatch = {}, actorId = null) {
 export async function deleteServerNode(id, actorId = null) {
   const cleanId = String(id || '').trim();
   if (!cleanId) return false;
+  if (cleanId === PRIMARY_NODE_ID) {
+    throw makeValidationError('Primary cluster host node cannot be deleted.', 403);
+  }
+  const existing = await getRawNodeById(cleanId);
+  if (!existing) return false;
+  if (existing.capabilities_json?.isPrimary === true) {
+    throw makeValidationError('Primary cluster host node cannot be deleted.', 403);
+  }
+  if (Number(existing.active_droplets || 0) > 0) {
+    throw makeValidationError(
+      `Cannot delete server node with ${existing.active_droplets} active droplet(s). Migrate or remove droplets first.`,
+      409
+    );
+  }
 
   if (usePg()) {
     await ensureServerFleetSchema();
@@ -1691,25 +2073,87 @@ export async function assertSafeProbeHostResolution(hostname, dnsLookup = dns.lo
   return records;
 }
 
+function extractBearerToken(node) {
+  try {
+    const creds = decryptServerCredentials(node?.credentials_ciphertext);
+    return creds?.bearerToken || creds?.apiToken || creds?.token || null;
+  } catch {
+    return null;
+  }
+}
+
+async function performPinnedHttpRequest(targetUrl, resolvedRecord, headers, timeoutMs) {
+  const parsed = new URL(targetUrl);
+  const client = parsed.protocol === 'https:' ? https : http;
+  return new Promise((resolve, reject) => {
+    const req = client.request(
+      parsed,
+      {
+        method: 'GET',
+        headers,
+        timeout: timeoutMs,
+        lookup: (_hostname, opts, cb) => {
+          const all = Boolean(opts?.all);
+          if (all) {
+            return cb(null, [{ address: resolvedRecord.address, family: resolvedRecord.family || 4 }]);
+          }
+          return cb(null, resolvedRecord.address, resolvedRecord.family || 4);
+        }
+      },
+      (res) => {
+        const chunks = [];
+        let total = 0;
+        res.on('data', (chunk) => {
+          if (total < 65536) {
+            chunks.push(chunk);
+            total += chunk.length;
+          }
+        });
+        res.on('end', () => {
+          const textBody = Buffer.concat(chunks).toString('utf8');
+          resolve({
+            status: Number(res.statusCode || 500),
+            ok: Number(res.statusCode || 500) >= 200 && Number(res.statusCode || 500) < 300,
+            text: async () => textBody
+          });
+        });
+      }
+    );
+    req.on('timeout', () => {
+      req.destroy(new Error(`HTTP probe timed out after ${timeoutMs}ms`));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 export async function runHttpHealthProbe(
   node,
   timeoutMs = 3500,
-  { dnsLookup = dns.lookup, fetchFn = fetch } = {}
+  { dnsLookup = dns.lookup, fetchFn = null } = {}
 ) {
   const targetUrl = buildProbeHttpUrl(node);
   const started = performance.now();
   try {
     const parsedTarget = new URL(targetUrl);
-    await assertSafeProbeHostResolution(parsedTarget.hostname, dnsLookup);
+    const resolvedRecords = await assertSafeProbeHostResolution(parsedTarget.hostname, dnsLookup);
 
-    const response = await fetchFn(targetUrl, {
-      method: 'GET',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(timeoutMs),
-      headers: {
-        'User-Agent': 'Tiwlo-ServerFleet-Probe/1.0'
-      }
-    });
+    const headers = {
+      'User-Agent': 'Tiwlo-ServerFleet-Probe/1.0'
+    };
+    const bearer = extractBearerToken(node);
+    if (bearer) {
+      headers.Authorization = `Bearer ${bearer}`;
+    }
+
+    const response = typeof fetchFn === 'function'
+      ? await fetchFn(targetUrl, {
+          method: 'GET',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(timeoutMs),
+          headers
+        })
+      : await performPinnedHttpRequest(targetUrl, resolvedRecords[0], headers, timeoutMs);
     const latencyMs = Math.max(1, Math.round(performance.now() - started));
     if (response.status >= 500) {
       return {
@@ -1729,12 +2173,54 @@ export async function runHttpHealthProbe(
         details: { protocol: 'http', targetUrl, httpStatus: response.status }
       };
     }
+
+    let telemetry = null;
+    if (response.ok && typeof response.text === 'function') {
+      try {
+        const rawBody = await response.text();
+        if (rawBody && rawBody.trim().startsWith('{')) {
+          const body = JSON.parse(rawBody);
+          if (body && typeof body === 'object') {
+            const sanitizedNetwork = body.networkAddresses && typeof body.networkAddresses === 'object'
+              ? {
+                  ipv4: Array.isArray(body.networkAddresses.ipv4)
+                    ? body.networkAddresses.ipv4.filter((ip) => net.isIPv4(String(ip || '').trim()) && !isBlockedMetadataOrSsrfIp(ip))
+                    : [],
+                  ipv6: Array.isArray(body.networkAddresses.ipv6)
+                    ? body.networkAddresses.ipv6.filter((ip) => isPublicGlobalIpv6(ip))
+                    : []
+                }
+              : undefined;
+            telemetry = {
+              cpuCores: Number.isFinite(Number(body.cpuCores)) ? Number(body.cpuCores) : undefined,
+              ramGb: Number.isFinite(Number(body.ramGb)) ? Number(body.ramGb) : undefined,
+              ramFreeGb: Number.isFinite(Number(body.ramFreeGb)) ? Number(body.ramFreeGb) : undefined,
+              storageGb: Number.isFinite(Number(body.storageGb)) ? Number(body.storageGb) : undefined,
+              storageFreeGb: Number.isFinite(Number(body.storageFreeGb)) ? Number(body.storageFreeGb) : undefined,
+              detectedOsId: body.detectedOsId || undefined,
+              detectedOsName: body.detectedOsName || undefined,
+              networkAddresses: sanitizedNetwork,
+              timezone: body.timezone || undefined,
+              loadPct: Number.isFinite(Number(body.loadPct)) ? Number(body.loadPct) : undefined
+            };
+          }
+        }
+      } catch {
+        // Non-JSON or unreadable body is still valid HTTP health response
+      }
+    }
+
     return {
       ok: true,
       status: latencyMs > 1500 ? 'degraded' : 'online',
       latencyMs,
       error: null,
-      details: { protocol: 'http', targetUrl, httpStatus: response.status }
+      details: {
+        protocol: 'http',
+        targetUrl,
+        httpStatus: response.status,
+        ...(telemetry ? { telemetry } : {})
+      }
     };
   } catch (err) {
     const latencyMs = Math.max(1, Math.round(performance.now() - started));
@@ -1749,8 +2235,34 @@ export async function runHttpHealthProbe(
 }
 
 async function defaultProbeNode(node, probeOptions = {}) {
-  assertSafeIpAddress(node.ip_address, 'ipAddress', { required: true });
-  assertSafeHostname(node.hostname, 'hostname');
+  const allowLoopback = node?.connectivity_mode === 'tcp_probe' && process.env.NODE_ENV !== 'production';
+  assertSafeIpAddress(node.ip_address, 'ipAddress', { required: true, allowLoopback });
+  assertSafeHostname(node.hostname, 'hostname', { allowLoopback });
+
+  if (node.id === PRIMARY_NODE_ID && !node.panel_url) {
+    const hw = detectLocalHostHardware();
+    return {
+      ok: true,
+      status: 'online',
+      latencyMs: 1,
+      error: null,
+      details: {
+        protocol: 'local_host',
+        telemetry: {
+          cpuCores: hw.cpuCores,
+          ramGb: hw.ramGb,
+          ramFreeGb: hw.ramFreeGb,
+          storageGb: hw.storageGb,
+          storageFreeGb: hw.storageFreeGb,
+          detectedOsId: hw.detectedOsId,
+          detectedOsName: hw.detectedOsName,
+          networkAddresses: hw.networkAddresses,
+          timezone: hw.timezone,
+          loadPct: hw.loadPct
+        }
+      }
+    };
+  }
 
   const isHttpMode = ['http_health', 'whm_api', 'tiwlo_panel_rpc'].includes(node.connectivity_mode);
   if (isHttpMode && (node.panel_url || node.health_endpoint)) {
@@ -1762,11 +2274,75 @@ async function defaultProbeNode(node, probeOptions = {}) {
   return runTcpProbe(node.ip_address, port, 3500);
 }
 
+async function recordFailoverOrRecovery(existingRow, nextStatus, actorId) {
+  const prevStatus = existingRow.status;
+  const nowIso = new Date().toISOString();
+
+  if ((prevStatus === 'online' || prevStatus === 'degraded') && nextStatus === 'offline') {
+    monitorState.autoFailoverCount += 1;
+    monitorState.lastFailoverAt = nowIso;
+    const replacement = await selectBestClusterNodeForDroplet({
+      excludeNodeIds: [existingRow.id],
+      regionId: existingRow.region
+    });
+    if (!monitorState.activeAlerts.some((a) => a.nodeId === existingRow.id && a.type === 'node_offline')) {
+      monitorState.activeAlerts = [
+        {
+          nodeId: existingRow.id,
+          nodeName: existingRow.name,
+          type: 'node_offline',
+          failoverTargetId: replacement?.id || null,
+          failoverTargetName: replacement?.name || null,
+          at: nowIso
+        },
+        ...monitorState.activeAlerts
+      ].slice(0, 25);
+    }
+
+    if (usePg() && replacement?.id) {
+      await queryPg(
+        `UPDATE system_ubuntu_tenants
+         SET migrated_from_node_id = node_id,
+             node_id = $2,
+             status = 'active',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE LOWER(COALESCE(node_id, '')) = LOWER($1)`,
+        [existingRow.id, replacement.id]
+      ).catch(() => {});
+    }
+
+    await appendConnectivityLog({
+      nodeId: existingRow.id,
+      eventType: 'failover_triggered',
+      status: 'offline',
+      errorMessage: replacement
+        ? `Node went offline; workloads routed to ${replacement.name} (${replacement.id}).`
+        : 'Node went offline; awaiting healthy failover node.',
+      details: { previousStatus: prevStatus, failoverTargetId: replacement?.id || null },
+      actorId: actorId || 'system:self_healing'
+    });
+  } else if ((prevStatus === 'offline' || prevStatus === 'degraded') && nextStatus === 'online') {
+    monitorState.selfHealedCount += 1;
+    monitorState.lastHealedAt = nowIso;
+    monitorState.activeAlerts = monitorState.activeAlerts.filter((a) => a.nodeId !== existingRow.id);
+    await appendConnectivityLog({
+      nodeId: existingRow.id,
+      eventType: 'self_healed',
+      status: 'online',
+      details: { previousStatus: prevStatus, recoveredAt: nowIso },
+      actorId: actorId || 'system:self_healing'
+    });
+  }
+}
+
 export async function probeServerConnectivity(nodeId, actorId = null, { probeFn, dnsLookup, fetchFn } = {}) {
   const existing = await getRawNodeById(nodeId);
   if (!existing) return null;
 
-  assertSafeIpAddress(existing.ip_address, 'ipAddress', { required: true });
+  assertSafeIpAddress(existing.ip_address, 'ipAddress', {
+    required: true,
+    allowLoopback: process.env.NODE_ENV !== 'production' && existing.connectivity_mode === 'tcp_probe'
+  });
   assertSafeHostname(existing.hostname, 'hostname');
   if (existing.panel_url) assertSafeEndpointUrl(existing.panel_url, 'panelUrl', { allowRelative: false });
 
@@ -1808,6 +2384,35 @@ export async function probeServerConnectivity(nodeId, actorId = null, { probeFn,
   }
 
   const checkedAt = new Date().toISOString();
+  const telemetry = probeResult.details?.telemetry;
+  const existingCaps = parseCapabilitiesJson(existing.capabilities_json);
+  const nextCaps = telemetry
+    ? {
+        ...existingCaps,
+        ...(telemetry.detectedOsId ? { detectedOsId: telemetry.detectedOsId } : {}),
+        ...(telemetry.detectedOsName ? { detectedOsName: telemetry.detectedOsName } : {}),
+        ...(telemetry.networkAddresses ? { networkAddresses: telemetry.networkAddresses } : {}),
+        ...(Number.isFinite(telemetry.ramFreeGb) ? { ramFreeGb: telemetry.ramFreeGb } : {}),
+        ...(Number.isFinite(telemetry.storageFreeGb) ? { storageFreeGb: telemetry.storageFreeGb } : {}),
+        ...(telemetry.timezone ? { timezone: telemetry.timezone } : {}),
+        ...(Number.isFinite(telemetry.loadPct) ? { loadPct: telemetry.loadPct } : {}),
+        ...(telemetry.detectedOsId
+          ? { osImages: Array.from(new Set([...(existingCaps.osImages || []), telemetry.detectedOsId])) }
+          : {})
+      }
+    : existingCaps;
+
+  const nextCpuCores = Number.isFinite(telemetry?.cpuCores) && telemetry.cpuCores > 0
+    ? Math.round(telemetry.cpuCores)
+    : Number(existing.cpu_cores);
+  const nextRamGb = Number.isFinite(telemetry?.ramGb) && telemetry.ramGb > 0
+    ? Math.round(telemetry.ramGb)
+    : Number(existing.ram_gb);
+  const nextStorageGb = Number.isFinite(telemetry?.storageGb) && telemetry.storageGb > 0
+    ? Math.round(telemetry.storageGb)
+    : Number(existing.storage_gb);
+  const nextIpv6 = telemetry?.networkAddresses?.ipv6?.[0] || existing.ipv6_address || null;
+
   let updatedRow;
 
   if (usePg()) {
@@ -1818,6 +2423,11 @@ export async function probeServerConnectivity(nodeId, actorId = null, { probeFn,
         last_heartbeat_at = CASE WHEN $3::boolean THEN CURRENT_TIMESTAMP ELSE last_heartbeat_at END,
         last_latency_ms = $4,
         last_probe_error = $5,
+        cpu_cores = $6,
+        ram_gb = $7,
+        storage_gb = $8,
+        ipv6_address = $9,
+        capabilities_json = $10::jsonb,
         updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
        RETURNING *`,
@@ -1826,10 +2436,34 @@ export async function probeServerConnectivity(nodeId, actorId = null, { probeFn,
         probeResult.status,
         probeResult.ok,
         probeResult.latencyMs,
-        probeResult.errorMessage
+        probeResult.errorMessage,
+        nextCpuCores,
+        nextRamGb,
+        nextStorageGb,
+        nextIpv6,
+        JSON.stringify(nextCaps)
       ]
     );
     updatedRow = rows[0];
+
+    // Automatic IPv6 prefix-change reconciliation + Public IPv4 catchup across all droplets on this node
+    if (probeResult.ok && telemetry?.networkAddresses) {
+      if (nextIpv6) {
+        await reconcileNodeIpv6PrefixChange({
+          nodeId: existing.id,
+          newIpv6Address: nextIpv6
+        }).catch(() => {});
+      }
+      const detectedV4 = (telemetry.networkAddresses.ipv4 || []).find((ip) => isPublicRoutableIpv4(ip));
+      if (detectedV4) {
+        await queryPg(
+          `UPDATE cloud_droplets
+           SET ip = $2
+           WHERE node_id = $1 AND ip IS DISTINCT FROM $2`,
+          [existing.id, detectedV4]
+        ).catch(() => {});
+      }
+    }
   } else {
     updatedRow = {
       ...existing,
@@ -1837,10 +2471,17 @@ export async function probeServerConnectivity(nodeId, actorId = null, { probeFn,
       last_heartbeat_at: probeResult.ok ? checkedAt : existing.last_heartbeat_at,
       last_latency_ms: probeResult.latencyMs,
       last_probe_error: probeResult.errorMessage,
+      cpu_cores: nextCpuCores,
+      ram_gb: nextRamGb,
+      storage_gb: nextStorageGb,
+      ipv6_address: nextIpv6,
+      capabilities_json: nextCaps,
       updated_at: checkedAt
     };
     memoryNodes.set(existing.id, updatedRow);
   }
+
+  await recordFailoverOrRecovery(existing, probeResult.status, actorId);
 
   await appendConnectivityLog({
     nodeId: existing.id,
@@ -2124,6 +2765,48 @@ export function startFleetConnectivityMonitor({
   };
 }
 
+export async function getClusterAutomationSettings() {
+  if (usePg()) {
+    await ensureServerFleetSchema();
+    const { rows } = await queryPg(
+      `SELECT value FROM system_server_fleet_settings WHERE key = 'automation' LIMIT 1`
+    );
+    if (rows[0]?.value && typeof rows[0].value === 'object') {
+      monitorState.backupEnabled = Boolean(rows[0].value.backupEnabled ?? false);
+    }
+  }
+  return {
+    backupEnabled: Boolean(monitorState.backupEnabled),
+    loadBalancingPolicy: 'weighted_least_load_overflow',
+    selfHealingEnabled: true,
+    autoFailoverEnabled: true,
+    autoLogPruningEnabled: true
+  };
+}
+
+export async function setClusterAutomationSettings(patch = {}, actorId = null) {
+  const current = await getClusterAutomationSettings();
+  const next = {
+    ...current,
+    ...(typeof patch.backupEnabled === 'boolean' ? { backupEnabled: patch.backupEnabled } : {})
+  };
+  monitorState.backupEnabled = next.backupEnabled;
+
+  if (usePg()) {
+    await ensureServerFleetSchema();
+    await queryPg(
+      `INSERT INTO system_server_fleet_settings (key, value, updated_by, updated_at)
+       VALUES ('automation', $1::jsonb, $2, CURRENT_TIMESTAMP)
+       ON CONFLICT (key) DO UPDATE SET
+         value = EXCLUDED.value,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = CURRENT_TIMESTAMP`,
+      [JSON.stringify(next), actorId ? String(actorId).slice(0, 120) : null]
+    );
+  }
+  return next;
+}
+
 export async function getFleetLiveStatus() {
   let summary;
   let avgLatencyMs = null;
@@ -2131,6 +2814,7 @@ export async function getFleetLiveStatus() {
 
   if (usePg()) {
     await ensureServerFleetSchema();
+    await ensurePrimaryLocalServerNode();
     const [{ summary: pgSummary }, latencyRes, eventsRes] = await Promise.all([
       listServerNodes({ page: 1, pageSize: 1 }),
       queryPg(
@@ -2183,6 +2867,15 @@ export async function getFleetLiveStatus() {
       });
   }
 
+  let serverTimezone = 'UTC';
+  try {
+    serverTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    serverTimezone = 'UTC';
+  }
+
+  const automationSettings = await getClusterAutomationSettings();
+
   return {
     monitor: {
       running: monitorState.running,
@@ -2194,10 +2887,331 @@ export async function getFleetLiveStatus() {
       lastSweepSummary: monitorState.lastSweepSummary,
       lastSweepError: monitorState.lastSweepError
     },
+    automation: {
+      ...automationSettings,
+      autoFailoverCount: monitorState.autoFailoverCount,
+      selfHealedCount: monitorState.selfHealedCount,
+      lastFailoverAt: monitorState.lastFailoverAt,
+      lastHealedAt: monitorState.lastHealedAt,
+      lastRebalanceAt: monitorState.lastRebalanceAt,
+      activeAlerts: monitorState.activeAlerts,
+      timezone: serverTimezone
+    },
     summary: {
       ...summary,
       avgLatencyMs
     },
     recentEvents
   };
+}
+
+/**
+ * Selects the healthiest cluster server node using weighted capacity + free storage overflow.
+ * Automatically overflows from full servers to connected nodes with free disk/RAM/slots.
+ */
+export async function selectBestClusterNodeForDroplet({
+  requiredStorageGb = 0,
+  requiredRamGb = 0,
+  regionId = null,
+  imageId = null,
+  excludeNodeIds = []
+} = {}) {
+  const excluded = new Set((excludeNodeIds || []).map((x) => String(x || '').trim()).filter(Boolean));
+  let rows;
+  if (usePg()) {
+    await ensureServerFleetSchema();
+    await ensurePrimaryLocalServerNode();
+    const { rows: pgRows } = await queryPg('SELECT * FROM system_server_nodes');
+    rows = pgRows;
+  } else {
+    rows = Array.from(memoryNodes.values());
+  }
+
+  const eligible = rows
+    .filter((row) => !excluded.has(row.id))
+    .filter((row) => row.status === 'online' || row.status === 'degraded')
+    .map((row) => toSafeNodeDto(row))
+    .filter((node) => {
+      if (node.maxDroplets > 0 && node.activeDroplets >= node.maxDroplets) return false;
+      if (requiredStorageGb > 0 && node.storageFreeGb !== null && node.storageFreeGb < requiredStorageGb) {
+        return false;
+      }
+      if (requiredRamGb > 0 && node.ramFreeGb !== null && node.ramFreeGb < requiredRamGb) {
+        return false;
+      }
+      return true;
+    });
+
+  if (eligible.length === 0) return null;
+
+  const cleanRegion = regionId ? String(regionId).trim().toLowerCase() : null;
+  const cleanImage = imageId ? String(imageId).trim().toLowerCase() : null;
+
+  eligible.sort((a, b) => {
+    const aHealth = a.status === 'online' ? 0 : 1;
+    const bHealth = b.status === 'online' ? 0 : 1;
+    if (aHealth !== bHealth) return aHealth - bHealth;
+
+    const aRegionMatch = cleanRegion && String(a.region || '').toLowerCase() === cleanRegion ? 0 : 1;
+    const bRegionMatch = cleanRegion && String(b.region || '').toLowerCase() === cleanRegion ? 0 : 1;
+    if (aRegionMatch !== bRegionMatch) return aRegionMatch - bRegionMatch;
+
+    const aImages = [a.detectedOsId, ...(a.capabilities?.osImages || [])].filter(Boolean).map((x) => String(x).toLowerCase());
+    const bImages = [b.detectedOsId, ...(b.capabilities?.osImages || [])].filter(Boolean).map((x) => String(x).toLowerCase());
+    const aImgMatch = cleanImage && aImages.includes(cleanImage) ? 0 : 1;
+    const bImgMatch = cleanImage && bImages.includes(cleanImage) ? 0 : 1;
+    if (aImgMatch !== bImgMatch) return aImgMatch - bImgMatch;
+
+    const aUtil = (a.activeDroplets || 0) / Math.max(1, a.maxDroplets || 100);
+    const bUtil = (b.activeDroplets || 0) / Math.max(1, b.maxDroplets || 100);
+    const aFreeScore = (1 - aUtil) * (a.routingWeight || 100) + ((a.storageFreeGb ?? a.storageGb ?? 0) * 0.1);
+    const bFreeScore = (1 - bUtil) * (b.routingWeight || 100) + ((b.storageFreeGb ?? b.storageGb ?? 0) * 0.1);
+    return bFreeScore - aFreeScore;
+  });
+
+  monitorState.lastRebalanceAt = new Date().toISOString();
+  return eligible[0];
+}
+
+export async function adjustNodeActiveDroplets(nodeId, delta) {
+  const cleanId = String(nodeId || '').trim();
+  const safeDelta = Number.parseInt(delta, 10) || 0;
+  if (!cleanId || safeDelta === 0) return null;
+
+  if (usePg()) {
+    await ensureServerFleetSchema();
+    const { rows } = await queryPg(
+      `UPDATE system_server_nodes
+       SET active_droplets = GREATEST(0, active_droplets + $2),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [cleanId, safeDelta]
+    );
+    return rows[0] ? toSafeNodeDto(rows[0]) : null;
+  }
+
+  const existing = memoryNodes.get(cleanId);
+  if (!existing) return null;
+  const updated = {
+    ...existing,
+    active_droplets: Math.max(0, Number(existing.active_droplets || 0) + safeDelta),
+    updated_at: new Date().toISOString()
+  };
+  memoryNodes.set(cleanId, updated);
+  return toSafeNodeDto(updated);
+}
+
+function runSshExecCommand(conn, command) {
+  return new Promise((resolve, reject) => {
+    conn.exec(command, (err, stream) => {
+      if (err) return reject(err);
+      let stdout = '';
+      let stderr = '';
+      stream.on('close', (code) => {
+        resolve({ code: Number(code ?? 0), stdout, stderr });
+      });
+      stream.on('data', (chunk) => {
+        stdout += chunk.toString('utf8');
+      });
+      stream.stderr.on('data', (chunk) => {
+        stderr += chunk.toString('utf8');
+      });
+    });
+  });
+}
+
+function parseRemoteHardwareProbe(stdout) {
+  const map = {};
+  for (const line of String(stdout || '').split(/\r?\n/)) {
+    const eqIdx = line.indexOf('=');
+    if (eqIdx > 0) {
+      const k = line.slice(0, eqIdx).trim();
+      const v = line.slice(eqIdx + 1).trim();
+      map[k] = v;
+    }
+  }
+  const cpuCores = Math.max(1, Number.parseInt(map.CPU_CORES || '2', 10) || 2);
+  const ramMb = Math.max(512, Number.parseInt(map.RAM_MB || '4096', 10) || 4096);
+  const ramFreeMb = Math.max(0, Number.parseInt(map.RAM_FREE_MB || '2048', 10) || 0);
+  const diskTotalGb = Math.max(10, Number.parseInt(map.DISK_TOTAL_GB || '50', 10) || 50);
+  const diskFreeGb = Math.max(0, Number.parseFloat(map.DISK_FREE_GB || '25') || 0);
+  const osId = String(map.OS_ID || 'ubuntu').toLowerCase();
+  const osVer = String(map.OS_VER || '24.04').toLowerCase();
+  const detectedOsId = osId === 'ubuntu' ? `ubuntu-${osVer}` : `${osId}-${osVer}`;
+  const ipv4List = String(map.IPV4_LIST || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((ip) => net.isIPv4(ip) && !isBlockedMetadataOrSsrfIp(ip));
+  const ipv6List = String(map.IPV6_LIST || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((ip) => net.isIPv6(ip) && !isBlockedMetadataOrSsrfIp(ip));
+
+  return {
+    hostname: map.HOSTNAME || null,
+    cpuCores,
+    ramGb: Math.max(1, Math.round(ramMb / 1024)),
+    ramFreeGb: Number((ramFreeMb / 1024).toFixed(1)),
+    storageGb: diskTotalGb,
+    storageFreeGb: Number(diskFreeGb.toFixed(1)),
+    detectedOsId,
+    detectedOsName: map.OS_PRETTY || `${osId} ${osVer}`,
+    timezone: map.TIMEZONE || 'UTC',
+    ipv4List,
+    ipv6List
+  };
+}
+
+/**
+ * Automatically connects to a remote Ubuntu/Linux server via SSH, discovers live hardware,
+ * OS image, timezone, and IPv4/IPv6 addresses, optionally installs persistent systemd node agent,
+ * and registers the server directly as 'online' in the cluster pool.
+ */
+export async function linkRemoteUbuntuNodeViaSsh(rawInput = {}, actorId = null, { sshConnectFn = null } = {}) {
+  const input = sanitizePlainValue(rawInput || {});
+  const host = assertSafeIpAddress(input.ipAddress || input.host, 'ipAddress', { required: true });
+  const sshPort = parseIntInRange(input.sshPort ?? 22, 22, 1, 65535, 'sshPort');
+  const sshUser = String(input.sshUser || input.username || 'root').trim();
+  const sshPassword = input.sshPassword || input.password || null;
+  const sshPrivateKey = input.sshPrivateKey || input.privateKey || null;
+  if (!sshPassword && !sshPrivateKey) {
+    throw makeValidationError('SSH password or privateKey is required to auto-link a remote server.');
+  }
+
+  let telemetry;
+  let agentToken = null;
+  let installResult = 'probe_only';
+
+  if (typeof sshConnectFn === 'function') {
+    const custom = await sshConnectFn({
+      host,
+      port: sshPort,
+      username: sshUser,
+      password: sshPassword,
+      privateKey: sshPrivateKey,
+      installAgent: input.installAgent !== false
+    });
+    telemetry = custom.telemetry || parseRemoteHardwareProbe(custom.probeOutput || '');
+    agentToken = custom.agentToken || null;
+    installResult = custom.installResult || 'installed';
+  } else {
+    const { Client } = await import('ssh2');
+    const conn = new Client();
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        try { conn.end(); } catch {}
+        reject(makeValidationError(`SSH connection to ${host}:${sshPort} timed out.`, 504));
+      }, 15000);
+      conn.once('ready', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      conn.once('error', (err) => {
+        clearTimeout(timer);
+        reject(makeValidationError(`SSH authentication failed: ${err?.message || 'Unable to connect'}`, 400));
+      });
+      conn.connect({
+        host,
+        port: sshPort,
+        username: sshUser,
+        ...(sshPassword ? { password: String(sshPassword) } : {}),
+        ...(sshPrivateKey ? { privateKey: String(sshPrivateKey) } : {}),
+        readyTimeout: 12000
+      });
+    });
+
+    try {
+      const probeCmd = [
+        'echo "HOSTNAME=$(hostname -f 2>/dev/null || hostname)"',
+        'echo "CPU_CORES=$(nproc)"',
+        'echo "RAM_MB=$(free -m | awk \'/^Mem:/{print $2}\')"',
+        'echo "RAM_FREE_MB=$(free -m | awk \'/^Mem:/{print $7}\')"',
+        'echo "DISK_TOTAL_GB=$(df -BG --output=size / | tail -1 | tr -dc 0-9)"',
+        'echo "DISK_FREE_GB=$(df -BG --output=avail / | tail -1 | tr -dc 0-9)"',
+        '. /etc/os-release 2>/dev/null || true',
+        'echo "OS_ID=${ID:-ubuntu}"',
+        'echo "OS_VER=${VERSION_ID:-24.04}"',
+        'echo "OS_PRETTY=${PRETTY_NAME:-Ubuntu}"',
+        'echo "TIMEZONE=$(timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo UTC)"',
+        'echo "IPV4_LIST=$(ip -4 -o addr show scope global | awk \'{print $4}\' | cut -d/ -f1 | paste -sd, -)"',
+        'echo "IPV6_LIST=$(ip -6 -o addr show scope global | awk \'{print $4}\' | cut -d/ -f1 | paste -sd, -)"'
+      ].join(' && ');
+
+      const probeRes = await runSshExecCommand(conn, probeCmd);
+      telemetry = parseRemoteHardwareProbe(probeRes.stdout);
+
+      if (input.installAgent !== false) {
+        agentToken = crypto.randomBytes(24).toString('hex');
+        const bootstrapUrl = new URL('../ubuntu/bootstrap-ubuntu-node.sh', import.meta.url);
+        if (fs.existsSync(bootstrapUrl)) {
+          const scriptContent = fs.readFileSync(bootstrapUrl, 'utf8');
+          const b64Script = Buffer.from(scriptContent, 'utf8').toString('base64');
+          const escapedToken = agentToken.replace(/[^a-zA-Z0-9]/g, '');
+          const installCmd = `echo "${b64Script}" | base64 -d > /tmp/tiwlo-bootstrap.sh && chmod +x /tmp/tiwlo-bootstrap.sh && TIWLO_AGENT_TOKEN="${escapedToken}" /tmp/tiwlo-bootstrap.sh --install-systemd-agent && rm -f /tmp/tiwlo-bootstrap.sh`;
+          const instRes = await runSshExecCommand(conn, installCmd);
+          installResult = instRes.code === 0 ? 'systemd_agent_active' : `exit_${instRes.code}`;
+        }
+      }
+    } finally {
+      try { conn.end(); } catch {}
+    }
+  }
+
+  const ipv4List = telemetry.ipv4List?.length ? telemetry.ipv4List : [host];
+  const ipv6List = telemetry.ipv6List || [];
+  const hostname = assertSafeHostname(input.hostname || telemetry.hostname || `${host}.node.tiwlo.local`, 'hostname');
+  const name = String(input.name || `Ubuntu Node (${hostname})`).trim().slice(0, 160);
+  const region = String(input.region || 'sgp1').trim().toLowerCase().slice(0, 48);
+  const agentPort = parseIntInRange(input.apiPort ?? 9443, 9443, 1, 65535, 'apiPort');
+
+  const created = await createServerNode(
+    {
+      name,
+      hostname,
+      ipAddress: isPublicRoutableIpv4(ipv4List[0]) ? ipv4List[0] : host,
+      ipv6Address: ipv6List.find((ip) => isPublicGlobalIpv6(ip)) || null,
+      panelType: 'ubuntu_node',
+      serverRole: input.serverRole || 'app_hosting',
+      panelUrl: `http://${host}:${agentPort}`,
+      apiPort: agentPort,
+      sshPort,
+      healthEndpoint: '/agent/v1/health',
+      connectivityMode: 'http_health',
+      region,
+      datacenter: input.datacenter || `${region}-auto`,
+      provider: input.provider || 'ubuntu-ssh-linked',
+      cpuCores: telemetry.cpuCores,
+      ramGb: telemetry.ramGb,
+      storageGb: telemetry.storageGb,
+      maxDroplets: parseIntInRange(input.maxDroplets ?? Math.max(20, telemetry.ramGb * 4), 100, 1, 100000, 'maxDroplets'),
+      activeDroplets: 0,
+      autoProvisionEnabled: true,
+      routingWeight: parseIntInRange(input.routingWeight ?? 100, 100, 1, 10000, 'routingWeight'),
+      authType: 'api_token',
+      ...(agentToken ? { bearerToken: agentToken } : {}),
+      credentials: {
+        sshUser,
+        ...(sshPassword ? { sshPassword: String(sshPassword) } : {}),
+        ...(sshPrivateKey ? { sshPrivateKey: String(sshPrivateKey) } : {}),
+        ...(agentToken ? { bearerToken: agentToken } : {})
+      },
+      status: 'online',
+      capabilities: {
+        ...PANEL_BLUEPRINTS.ubuntu_node.capabilities,
+        detectedOsId: telemetry.detectedOsId,
+        detectedOsName: telemetry.detectedOsName,
+        osImages: [telemetry.detectedOsId],
+        networkAddresses: { ipv4: ipv4List, ipv6: ipv6List },
+        ramFreeGb: telemetry.ramFreeGb,
+        storageFreeGb: telemetry.storageFreeGb,
+        timezone: telemetry.timezone,
+        installResult
+      },
+      tags: ['auto-linked', 'systemd-agent', region]
+    },
+    actorId
+  );
+
+  return { node: created, telemetry, installResult };
 }

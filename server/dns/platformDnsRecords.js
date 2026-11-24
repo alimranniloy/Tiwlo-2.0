@@ -135,10 +135,43 @@ export async function ensurePlatformDnsSchema(database) {
          content = EXCLUDED.content,
          ttl = EXCLUDED.ttl,
          priority = EXCLUDED.priority,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE system_platform_dns_records.is_system = TRUE
-         AND system_platform_dns_records.enabled = TRUE`,
+         is_system = TRUE,
+         enabled = TRUE,
+         updated_at = CURRENT_TIMESTAMP`,
       [record.id, record.zone, record.name, record.type, record.content, record.ttl, record.priority, record.systemKey]
     );
   }
+}
+
+/**
+ * Self-healing restore: ensures critical system/Google verification/email/NS DNS records
+ * can never remain missing or disabled even if altered directly in the database.
+ */
+export async function restoreMissingCriticalPlatformDnsRecords(database) {
+  let restoredCount = 0;
+  for (const record of getDefaultPlatformDnsRecords()) {
+    const { rowCount } = await database.query(
+      `INSERT INTO system_platform_dns_records
+         (id, zone, name, type, content, ttl, priority, system_key, is_system, enabled)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, TRUE)
+       ON CONFLICT (zone, system_key) WHERE system_key IS NOT NULL
+       DO UPDATE SET
+         name = EXCLUDED.name,
+         type = EXCLUDED.type,
+         content = EXCLUDED.content,
+         ttl = EXCLUDED.ttl,
+         priority = EXCLUDED.priority,
+         is_system = TRUE,
+         enabled = TRUE,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE system_platform_dns_records.enabled = FALSE
+          OR system_platform_dns_records.is_system = FALSE
+          OR system_platform_dns_records.content IS DISTINCT FROM EXCLUDED.content
+          OR system_platform_dns_records.ttl IS DISTINCT FROM EXCLUDED.ttl
+          OR system_platform_dns_records.priority IS DISTINCT FROM EXCLUDED.priority`,
+      [record.id, record.zone, record.name, record.type, record.content, record.ttl, record.priority, record.systemKey]
+    );
+    if (rowCount > 0) restoredCount += rowCount;
+  }
+  return { restoredCount };
 }

@@ -1,25 +1,45 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
   ArrowLeft,
   BadgeCheck,
   Ban,
+  BarChart3,
+  Bot,
   Clock,
+  Cpu,
   CreditCard,
   ExternalLink,
+  FileWarning,
+  Flame,
   Gift,
   Laptop,
+  Lock,
   LogOut,
+  MailWarning,
   MapPin,
+  MessageSquare,
   Network,
   RefreshCw,
+  Server,
   ShieldAlert,
   ShieldCheck,
   Store,
   UserCheck,
   Wallet
 } from 'lucide-react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Separator
+} from '../components/ui/shadcnPrimitives.jsx';
 import { requestSensitiveActionGrant } from '../security/reauth.js';
 import AdminBiometricVaultCard from './components/AdminBiometricVaultCard.jsx';
 import {
@@ -37,12 +57,768 @@ import {
 
 const DETAIL_TABS = [
   { id: 'timeline', label: 'Live Trail & Security Timeline' },
+  { id: 'abuse-evidence', label: 'Abuse Evidence & Service Holds' },
   { id: 'stores', label: 'Stores & Wallet' },
   { id: 'locations', label: 'Login Locations & Devices' },
   { id: 'sessions', label: 'Active Sessions' },
   { id: 'claims', label: 'Claims & Billing' },
   { id: 'governance', label: 'Linked Accounts & Governance' }
 ];
+
+const VALID_DETAIL_TAB_IDS = new Set(DETAIL_TABS.map((t) => t.id));
+
+function parseUserIdAndTab(rawUserId) {
+  const raw = String(rawUserId || '').trim();
+  const [idPart, queryPart] = raw.split('?');
+  let requestedTab = '';
+  if (queryPart) {
+    requestedTab = new URLSearchParams(queryPart).get('tab') || '';
+  }
+  if (!requestedTab && typeof window !== 'undefined' && window.location?.search) {
+    requestedTab = new URLSearchParams(window.location.search).get('tab') || '';
+  }
+  return {
+    cleanUserId: idPart || raw,
+    initialTab: VALID_DETAIL_TAB_IDS.has(requestedTab) ? requestedTab : 'timeline'
+  };
+}
+
+function getHoldBadgeMeta(holdType, isBanned) {
+  switch (holdType) {
+    case 'permanent_ban':
+      return { label: 'Permanent Ban (permanent_ban)', variant: 'destructive' };
+    case 'temp_ban':
+      return { label: 'Temporary Ban (temp_ban)', variant: 'destructive' };
+    case 'nid_review':
+      return { label: 'NID Review Hold (nid_review)', variant: 'warning' };
+    case 'cleared':
+      return { label: 'Hold Cleared (cleared)', variant: 'success' };
+    default:
+      return isBanned
+        ? { label: 'Account Suspended (Legacy Ban)', variant: 'destructive' }
+        : { label: 'No Active Hold', variant: 'secondary' };
+  }
+}
+
+function getServiceStatusBadgeMeta(status) {
+  switch (status) {
+    case 'paused':
+    case 'paused_on_hold':
+      return { label: 'Paused', variant: 'warning' };
+    case 'partial_pause':
+      return { label: 'Partially Paused', variant: 'warning' };
+    case 'purged':
+      return { label: 'Purged', variant: 'destructive' };
+    case 'active':
+      return { label: 'Active', variant: 'success' };
+    default:
+      return { label: 'No Resources', variant: 'secondary' };
+  }
+}
+
+function formatVpsRuleLabel(ruleType) {
+  switch (ruleType) {
+    case 'smtp_spam_egress':
+      return 'SMTP Spam Burst / Port 25';
+    case 'crypto_miner_suspected':
+      return 'Crypto-Miner Stratum';
+    case 'outbound_flood_scan':
+      return 'Outbound Flood / Scan';
+    default:
+      return String(ruleType || 'VPS Abuse').replaceAll('_', ' ');
+  }
+}
+
+function AbuseRiskSvgChart({ chartSeries }) {
+  const [chartMode, setChartMode] = useState('category');
+  const [hoveredKey, setHoveredKey] = useState(null);
+
+  const byCategory = Array.isArray(chartSeries?.byCategory) ? chartSeries.byCategory : [];
+  const byDate = Array.isArray(chartSeries?.byDate) ? chartSeries.byDate : [];
+
+  const maxCatVal = Math.max(1, ...byCategory.map((c) => Number(c.count || 0)));
+  const maxDateVal = Math.max(1, ...byDate.map((d) => Number(d.total || 0)));
+
+  const toneColors = {
+    critical: '#e11d48',
+    warning: '#f59e0b',
+    info: '#1ED760'
+  };
+
+  const activeCategory = byCategory.find((c) => c.key === hoveredKey) || null;
+  const activeDate = byDate.find((d) => d.date === hoveredKey) || null;
+
+  return (
+    <Card className="border-neutral-200/80 dark:border-neutral-800">
+      <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <BarChart3 className="w-4 h-4 text-[#1ED760]" />
+            Activity &amp; Risk Breakdown Chart
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Offense counts across abuse categories and recorded dates.
+          </CardDescription>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant={chartMode === 'category' ? 'default' : 'outline'}
+            onClick={() => {
+              setChartMode('category');
+              setHoveredKey(null);
+            }}
+          >
+            By Category
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={chartMode === 'date' ? 'default' : 'outline'}
+            onClick={() => {
+              setChartMode('date');
+              setHoveredKey(null);
+            }}
+          >
+            By Date ({byDate.length})
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {chartMode === 'category' ? (
+          <div className="space-y-2">
+            <div className="w-full overflow-x-auto">
+              <svg
+                viewBox="0 0 680 220"
+                className="w-full min-w-[520px] h-52 select-none"
+                role="img"
+                aria-label="Activity and risk breakdown by category"
+              >
+                {[0, 0.5, 1].map((ratio) => {
+                  const y = 165 - ratio * 125;
+                  const tickVal = Math.round(maxCatVal * ratio);
+                  return (
+                    <g key={ratio}>
+                      <line
+                        x1="40"
+                        y1={y}
+                        x2="660"
+                        y2={y}
+                        stroke="currentColor"
+                        className="text-neutral-200 dark:text-neutral-800"
+                        strokeDasharray={ratio === 0 ? undefined : '3 3'}
+                      />
+                      <text
+                        x="32"
+                        y={y + 4}
+                        textAnchor="end"
+                        className="fill-neutral-400 text-[10px] font-mono"
+                      >
+                        {tickVal}
+                      </text>
+                    </g>
+                  );
+                })}
+                {byCategory.map((item, idx) => {
+                  const count = Number(item.count || 0);
+                  const slotWidth = 610 / Math.max(1, byCategory.length);
+                  const barWidth = Math.min(44, slotWidth * 0.54);
+                  const x = 48 + idx * slotWidth + (slotWidth - barWidth) / 2;
+                  const barHeight = count > 0 ? Math.max(8, (count / maxCatVal) * 125) : 3;
+                  const y = 165 - barHeight;
+                  const fill = count > 0 ? (toneColors[item.tone] || '#1ED760') : '#94a3b8';
+                  const isHovered = hoveredKey === item.key;
+
+                  return (
+                    <g
+                      key={item.key}
+                      className="cursor-pointer"
+                      onMouseEnter={() => setHoveredKey(item.key)}
+                      onMouseLeave={() => setHoveredKey(null)}
+                      onClick={() => setHoveredKey(isHovered ? null : item.key)}
+                    >
+                      <rect
+                        x={x}
+                        y={40}
+                        width={barWidth}
+                        height={125}
+                        rx="6"
+                        className="fill-neutral-100/70 dark:fill-neutral-900/70"
+                      />
+                      <rect
+                        x={x}
+                        y={y}
+                        width={barWidth}
+                        height={barHeight}
+                        rx="6"
+                        fill={fill}
+                        opacity={count > 0 ? (isHovered ? 1 : 0.88) : 0.3}
+                      />
+                      <text
+                        x={x + barWidth / 2}
+                        y={Math.max(24, y - 6)}
+                        textAnchor="middle"
+                        className="fill-neutral-800 dark:fill-neutral-100 text-[11px] font-bold font-mono"
+                      >
+                        {count}
+                      </text>
+                      <text
+                        x={x + barWidth / 2}
+                        y="186"
+                        textAnchor="middle"
+                        className="fill-neutral-500 dark:fill-neutral-400 text-[10px] font-medium"
+                      >
+                        {item.label}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-500 dark:text-neutral-400 pt-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-rose-600" /> Critical Abuse / Weapons
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-amber-500" /> Port 25 / Flood / NSFW
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-[#1ED760]" /> Lifecycle Holds &amp; Audits
+                </span>
+              </div>
+              {activeCategory && (
+                <span className="font-semibold text-neutral-900 dark:text-white tabular-nums">
+                  {activeCategory.label}: {activeCategory.count} event{activeCategory.count === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
+          </div>
+        ) : byDate.length === 0 ? (
+          <div className="py-10 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 text-center text-xs text-neutral-400">
+            No dated VPS abuse, moderation strike, or lifecycle hold events recorded yet.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="w-full overflow-x-auto">
+              <svg
+                viewBox="0 0 680 220"
+                className="w-full min-w-[520px] h-52 select-none"
+                role="img"
+                aria-label="Activity and risk breakdown by date"
+              >
+                {[0, 0.5, 1].map((ratio) => {
+                  const y = 165 - ratio * 125;
+                  const tickVal = Math.round(maxDateVal * ratio);
+                  return (
+                    <g key={ratio}>
+                      <line
+                        x1="40"
+                        y1={y}
+                        x2="660"
+                        y2={y}
+                        stroke="currentColor"
+                        className="text-neutral-200 dark:text-neutral-800"
+                        strokeDasharray={ratio === 0 ? undefined : '3 3'}
+                      />
+                      <text
+                        x="32"
+                        y={y + 4}
+                        textAnchor="end"
+                        className="fill-neutral-400 text-[10px] font-mono"
+                      >
+                        {tickVal}
+                      </text>
+                    </g>
+                  );
+                })}
+                {byDate.map((bucket, idx) => {
+                  const slotWidth = 610 / Math.max(1, byDate.length);
+                  const barWidth = Math.min(34, slotWidth * 0.6);
+                  const x = 48 + idx * slotWidth + (slotWidth - barWidth) / 2;
+
+                  const vpsH = (bucket.vpsAbuse / maxDateVal) * 125;
+                  const storeH = (bucket.storeFlags / maxDateVal) * 125;
+                  const lifeH = (bucket.lifecycle / maxDateVal) * 125;
+
+                  const yLife = 165 - lifeH;
+                  const yStore = yLife - storeH;
+                  const yVps = yStore - vpsH;
+                  const topY = Math.min(yVps, yStore, yLife);
+
+                  return (
+                    <g
+                      key={bucket.date}
+                      className="cursor-pointer"
+                      onMouseEnter={() => setHoveredKey(bucket.date)}
+                      onMouseLeave={() => setHoveredKey(null)}
+                      onClick={() => setHoveredKey(hoveredKey === bucket.date ? null : bucket.date)}
+                    >
+                      {lifeH > 0 && (
+                        <rect x={x} y={yLife} width={barWidth} height={lifeH} fill="#1ED760" rx="2" />
+                      )}
+                      {storeH > 0 && (
+                        <rect x={x} y={yStore} width={barWidth} height={storeH} fill="#f59e0b" rx="2" />
+                      )}
+                      {vpsH > 0 && (
+                        <rect x={x} y={yVps} width={barWidth} height={vpsH} fill="#e11d48" rx="2" />
+                      )}
+                      <text
+                        x={x + barWidth / 2}
+                        y={Math.max(24, topY - 6)}
+                        textAnchor="middle"
+                        className="fill-neutral-800 dark:fill-neutral-100 text-[10px] font-bold font-mono"
+                      >
+                        {bucket.total}
+                      </text>
+                      <text
+                        x={x + barWidth / 2}
+                        y="186"
+                        textAnchor="middle"
+                        className="fill-neutral-500 dark:fill-neutral-400 text-[9px] font-medium"
+                      >
+                        {bucket.label}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-500 dark:text-neutral-400 pt-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-rose-600" /> VPS Abuse
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-amber-500" /> Store / Content Strikes
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-[#1ED760]" /> Lifecycle Holds
+                </span>
+              </div>
+              {activeDate && (
+                <span className="font-semibold text-neutral-900 dark:text-white tabular-nums">
+                  {activeDate.date}: {activeDate.vpsAbuse} VPS · {activeDate.storeFlags} Store · {activeDate.lifecycle} Holds
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AbuseEvidenceTabPanel({
+  abuseEvidence,
+  abuseLoading,
+  abuseError,
+  dossierUser,
+  onRetry
+}) {
+  const [evidenceFilter, setEvidenceFilter] = useState('all');
+
+  if (abuseLoading && !abuseEvidence) {
+    return (
+      <div className="py-12 text-center text-xs text-neutral-400 space-y-2">
+        <div className="w-6 h-6 border-2 border-[#1ED760] border-t-transparent rounded-full animate-spin mx-auto" />
+        <p>Loading forensic abuse logs, service hold snapshots, and moderation strikes...</p>
+      </div>
+    );
+  }
+
+  if (abuseError && !abuseEvidence) {
+    return (
+      <Alert variant="destructive" className="justify-between items-center">
+        <div>
+          <p className="font-semibold">Could not load forensic abuse evidence</p>
+          <p className="text-[11px] opacity-90 mt-0.5">{abuseError}</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+          Retry
+        </Button>
+      </Alert>
+    );
+  }
+
+  const hold = abuseEvidence?.hold || null;
+  const accountSecurity = abuseEvidence?.accountSecurity || null;
+  const vpsEvents = Array.isArray(abuseEvidence?.vpsAbuseEvents) ? abuseEvidence.vpsAbuseEvents : [];
+  const storeFlags = Array.isArray(abuseEvidence?.storeFlags) ? abuseEvidence.storeFlags : [];
+  const lifecycleAudits = Array.isArray(abuseEvidence?.lifecycleAudits) ? abuseEvidence.lifecycleAudits : [];
+  const summaryCounts = abuseEvidence?.summaryCounts || {};
+  const serviceStates = abuseEvidence?.serviceStates || {};
+  const holdBadge = getHoldBadgeMeta(hold?.holdType, Boolean(dossierUser?.isBanned));
+
+  const forensicReason =
+    hold?.reason ||
+    dossierUser?.banReason ||
+    accountSecurity?.lastReason ||
+    'No active suspension or forensic hold reason recorded.';
+
+  const services = [
+    { key: 'vps', title: 'VPS', icon: Server, state: serviceStates.vps || {} },
+    { key: 'ecommerce', title: 'E-Commerce', icon: Store, state: serviceStates.ecommerce || {} },
+    { key: 'discordBot', title: 'Discord Bot', icon: Bot, state: serviceStates.discordBot || {} },
+    { key: 'whatsapp', title: 'WhatsApp Automation', icon: MessageSquare, state: serviceStates.whatsapp || {} }
+  ];
+
+  const showVps = evidenceFilter === 'all' || evidenceFilter === 'vps';
+  const showStore = evidenceFilter === 'all' || evidenceFilter === 'store';
+  const showLifecycle = evidenceFilter === 'all' || evidenceFilter === 'lifecycle';
+
+  return (
+    <div className="space-y-4">
+      {/* 1. Admin-Only Forensic Ban Reason, Hold Type, Retain Until & Cross-Service Paused Status */}
+      <Card className="border-neutral-200/80 dark:border-neutral-800">
+        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 space-y-0">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <ShieldAlert className="w-4 h-4 text-rose-500" />
+              Admin-Only Forensic Ban Reason &amp; Service Hold State
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Authoritative enforcement hold type, non-refundable retention deadline, and cross-service pause state.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant={holdBadge.variant}>{holdBadge.label}</Badge>
+            {hold && (
+              <Badge variant={hold.nonRefundable !== false ? 'destructive' : 'secondary'}>
+                {hold.nonRefundable !== false ? 'Non-Refundable' : 'Refundable'}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert variant={dossierUser?.isBanned || (hold && hold.holdType !== 'cleared') ? 'destructive' : 'default'}>
+            <Lock className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="space-y-1 min-w-0 flex-1">
+              <p className="font-semibold text-xs">Exact Admin-Only Forensic Ban / Suspend Reason</p>
+              <p className="text-xs leading-relaxed break-words">{forensicReason}</p>
+            </div>
+          </Alert>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+            <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3">
+              <span className="text-[10px] text-neutral-400 block">Hold Type</span>
+              <span className="font-mono font-semibold text-neutral-900 dark:text-white mt-0.5 block">
+                {hold?.holdType || (dossierUser?.isBanned ? 'legacy_ban' : 'none')}
+              </span>
+            </div>
+            <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3">
+              <span className="text-[10px] text-neutral-400 block">Paused At</span>
+              <span className="font-semibold text-neutral-900 dark:text-white mt-0.5 block tabular-nums">
+                {hold?.pausedAt ? formatDateTime(hold.pausedAt) : '—'}
+              </span>
+            </div>
+            <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3">
+              <span className="text-[10px] text-neutral-400 block">Non-Refundable Retain Until</span>
+              <span className="font-semibold text-rose-600 dark:text-rose-400 mt-0.5 block tabular-nums">
+                {hold?.retainUntil
+                  ? formatDateTime(hold.retainUntil)
+                  : hold?.holdType === 'permanent_ban'
+                    ? 'Pending Schedule'
+                    : 'N/A'}
+              </span>
+            </div>
+            <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3">
+              <span className="text-[10px] text-neutral-400 block">Moderation Strikes</span>
+              <span className="font-semibold text-neutral-900 dark:text-white mt-0.5 block tabular-nums">
+                {accountSecurity?.strikes ?? summaryCounts.accountStrikes ?? 0} strike{(accountSecurity?.strikes ?? 0) === 1 ? '' : 's'}
+                {hold?.purgedAt ? ` · Purged ${formatDateTime(hold.purgedAt)}` : ''}
+              </span>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <h5 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Cross-Service Paused Status
+            </h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {services.map((svc) => {
+                const Icon = svc.icon;
+                const badgeMeta = getServiceStatusBadgeMeta(svc.state?.status);
+                return (
+                  <div
+                    key={svc.key}
+                    className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 p-3 flex items-start justify-between gap-2"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900 dark:text-white">
+                        <Icon className="w-3.5 h-3.5 text-[#1ED760] shrink-0" />
+                        <span className="truncate">{svc.title}</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 tabular-nums">
+                        {svc.state?.pausedCount ?? 0} paused / {svc.state?.totalCount ?? 0} total
+                      </p>
+                    </div>
+                    <Badge variant={badgeMeta.variant}>{badgeMeta.label}</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 2. KPI Summary & SVG Activity & Risk Breakdown Chart */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3">
+          <span className="text-[10px] text-neutral-400 flex items-center gap-1">
+            <MailWarning className="w-3 h-3 text-rose-500" /> SMTP Spam Bursts
+          </span>
+          <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5 tabular-nums">
+            {summaryCounts.smtpSpamBursts ?? 0}
+          </p>
+        </div>
+        <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3">
+          <span className="text-[10px] text-neutral-400 flex items-center gap-1">
+            <Flame className="w-3 h-3 text-amber-500" /> Port 25 Hits
+          </span>
+          <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5 tabular-nums">
+            {summaryCounts.port25Hits ?? 0}
+          </p>
+        </div>
+        <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3">
+          <span className="text-[10px] text-neutral-400 flex items-center gap-1">
+            <Cpu className="w-3 h-3 text-rose-500" /> Crypto-Miner Stratum
+          </span>
+          <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5 tabular-nums">
+            {summaryCounts.cryptoMinerStratum ?? 0}
+          </p>
+        </div>
+        <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3">
+          <span className="text-[10px] text-neutral-400 flex items-center gap-1">
+            <FileWarning className="w-3 h-3 text-amber-500" /> NSFW / Weapon Strikes
+          </span>
+          <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5 tabular-nums">
+            {summaryCounts.storeModerationStrikes ?? 0}
+          </p>
+        </div>
+      </div>
+
+      <AbuseRiskSvgChart chartSeries={abuseEvidence?.chartSeries} />
+
+      {/* 3. Structured Forensic Evidence Logs */}
+      <Card className="border-neutral-200/80 dark:border-neutral-800">
+        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 space-y-0">
+          <div>
+            <CardTitle className="text-sm">Flagged Activity &amp; Forensic Evidence Logs</CardTitle>
+            <CardDescription className="mt-1">
+              Timestamped telemetry for SMTP spam bursts, Port 25 hits, Stratum mining, store moderation strikes, and hold audits.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { id: 'all', label: `All (${vpsEvents.length + storeFlags.length + lifecycleAudits.length})` },
+              { id: 'vps', label: `VPS Abuse (${vpsEvents.length})` },
+              { id: 'store', label: `Store / Content (${storeFlags.length})` },
+              { id: 'lifecycle', label: `Hold Audits (${lifecycleAudits.length})` }
+            ].map((f) => (
+              <Button
+                key={f.id}
+                type="button"
+                size="sm"
+                variant={evidenceFilter === f.id ? 'default' : 'outline'}
+                onClick={() => setEvidenceFilter(f.id)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {showVps && (
+            <div className="space-y-2.5">
+              <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                <Server className="w-3.5 h-3.5 text-rose-500" />
+                VPS Abuse Telemetry ({vpsEvents.length})
+              </h5>
+              {vpsEvents.length === 0 ? (
+                <p className="text-xs text-neutral-400 py-5 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 text-center">
+                  No VPS SMTP spam bursts, Port 25 hits, or Crypto-Miner Stratum triggers recorded.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-neutral-200/80 dark:border-neutral-800">
+                  <table className="w-full min-w-[680px] text-left text-xs">
+                    <thead>
+                      <tr className="bg-neutral-50/80 dark:bg-neutral-900/60 border-b border-neutral-200/80 dark:border-neutral-800 text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">
+                        <th className="py-2 px-3">Rule &amp; Severity</th>
+                        <th className="py-2 px-3">Droplet</th>
+                        <th className="py-2 px-3">Forensic Counts &amp; Ports</th>
+                        <th className="py-2 px-3">Action Taken</th>
+                        <th className="py-2 px-3 text-right">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/70">
+                      {vpsEvents.map((ev) => {
+                        const evidence = ev.evidence || {};
+                        const blockedPorts = Array.isArray(evidence.blockedPortHits) ? evidence.blockedPortHits : [];
+                        const blockedSmtp = Array.isArray(evidence.blockedSmtpHits) ? evidence.blockedSmtpHits : [];
+                        const stratumPorts = Array.isArray(evidence.detectedStratumPorts) ? evidence.detectedStratumPorts : [];
+                        return (
+                          <tr key={ev.id} className="hover:bg-neutral-50/60 dark:hover:bg-neutral-900/40">
+                            <td className="py-2.5 px-3">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <Badge variant={ev.severity === 'critical' ? 'destructive' : 'warning'}>
+                                  {ev.severity}
+                                </Badge>
+                                <span className="font-semibold text-neutral-900 dark:text-white">
+                                  {formatVpsRuleLabel(ev.ruleType)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
+                              {ev.dropletName || ev.dropletId}
+                            </td>
+                            <td className="py-2.5 px-3 text-[11px] text-neutral-600 dark:text-neutral-300 space-y-0.5 tabular-nums">
+                              {Number(evidence.smtpAttemptsPerMin) > 0 && (
+                                <div>SMTP Attempts/min: <span className="font-mono font-semibold">{evidence.smtpAttemptsPerMin}</span></div>
+                              )}
+                              {(blockedPorts.length > 0 || blockedSmtp.length > 0) && (
+                                <div>Blocked Ports: <span className="font-mono font-semibold">{[...new Set([...blockedPorts, ...blockedSmtp])].join(', ')}</span></div>
+                              )}
+                              {stratumPorts.length > 0 && (
+                                <div>Stratum Ports: <span className="font-mono font-semibold text-rose-600 dark:text-rose-400">{stratumPorts.join(', ')}</span></div>
+                              )}
+                              {Number(evidence.sustainedCpuPct) > 0 && (
+                                <div>Sustained CPU: <span className="font-mono font-semibold">{evidence.sustainedCpuPct}%</span> ({evidence.highCpuMinutes || 0}m)</div>
+                              )}
+                              {Number(evidence.outboundConnectionsPerMin) > 0 && (
+                                <div>Outbound Conns/min: <span className="font-mono font-semibold">{evidence.outboundConnectionsPerMin}</span></div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <Badge variant="outline" className="font-mono text-[10px]">
+                                {ev.actionTaken}
+                              </Badge>
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-[11px] text-neutral-400 tabular-nums whitespace-nowrap">
+                              {formatDateTime(ev.createdAt)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showStore && (
+            <div className="space-y-2.5">
+              <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                <FileWarning className="w-3.5 h-3.5 text-amber-500" />
+                NSFW / Weapon / Prohibited Product Moderation Strikes ({storeFlags.length})
+              </h5>
+              {storeFlags.length === 0 ? (
+                <p className="text-xs text-neutral-400 py-5 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 text-center">
+                  No NSFW, weapon, contraband, or prohibited storefront moderation strikes recorded.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {storeFlags.map((flag) => (
+                    <div
+                      key={flag.id}
+                      className="p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-start justify-between gap-2"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant={flag.severity === 'critical' ? 'destructive' : 'warning'}>
+                            {flag.severity}
+                          </Badge>
+                          <Badge variant="secondary" className="font-mono">
+                            {flag.category}
+                          </Badge>
+                          <span className="text-xs font-semibold text-neutral-900 dark:text-white">
+                            {flag.policyName}
+                          </span>
+                          <span className="text-[11px] text-neutral-500">
+                            · {flag.contentType}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-600 dark:text-neutral-300 break-words">
+                          {flag.reason}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-neutral-400 font-mono">
+                          <span>Action: {flag.actionTaken}</span>
+                          {flag.strikes != null && <span>· Strikes: {flag.strikes}</span>}
+                          {flag.remoteIp && <span>· IP: {flag.remoteIp}</span>}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-neutral-400 tabular-nums shrink-0">
+                        {formatDateTime(flag.createdAt)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {showLifecycle && (
+            <div className="space-y-2.5">
+              <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#1ED760]" />
+                Account Lifecycle &amp; Hold Audits ({lifecycleAudits.length})
+              </h5>
+              {lifecycleAudits.length === 0 ? (
+                <p className="text-xs text-neutral-400 py-5 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 text-center">
+                  No service hold or lifecycle purge audits recorded.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {lifecycleAudits.map((aud) => (
+                    <div
+                      key={aud.id}
+                      className="p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-start justify-between gap-2"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant={aud.holdType === 'permanent_ban' ? 'destructive' : aud.holdType === 'cleared' ? 'success' : 'warning'}>
+                            {aud.action}
+                          </Badge>
+                          {aud.holdType && (
+                            <span className="font-mono text-[11px] text-neutral-600 dark:text-neutral-300">
+                              holdType: {aud.holdType}
+                            </span>
+                          )}
+                          <Badge variant="outline">
+                            {aud.nonRefundable !== false ? 'Non-Refundable' : 'Refundable'}
+                          </Badge>
+                        </div>
+                        {aud.reason && (
+                          <p className="text-xs text-neutral-700 dark:text-neutral-200 break-words">
+                            {aud.reason}
+                          </p>
+                        )}
+                        {aud.details && Object.keys(aud.details).length > 0 && (
+                          <p className="text-[10px] font-mono text-neutral-500">
+                            Droplets: {aud.details.affectedDroplets?.length ?? aud.details.deletedDroplets?.length ?? 0} ·
+                            Stores: {aud.details.affectedStores?.length ?? aud.details.terminatedStores?.length ?? 0} ·
+                            Held IPs: {aud.details.heldIps?.length ?? aud.details.releasedIps?.length ?? 0}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-neutral-400 tabular-nums shrink-0">
+                        {formatDateTime(aud.createdAt)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default function AdminUserDetailPage({
   userId,
@@ -52,8 +828,14 @@ export default function AdminUserDetailPage({
   showToast,
   currentUser
 }) {
+  const parsedRoute = useMemo(() => parseUserIdAndTab(userId), [userId]);
+  const effectiveUserId = parsedRoute.cleanUserId;
+
   const [dossier, setDossier] = useState(null);
   const [userContext, setUserContext] = useState(null);
+  const [abuseEvidence, setAbuseEvidence] = useState(null);
+  const [abuseLoading, setAbuseLoading] = useState(false);
+  const [abuseError, setAbuseError] = useState('');
   const [liveTrail, setLiveTrail] = useState([]);
   const [liveTrailCursor, setLiveTrailCursor] = useState(null);
   const [liveTrailHasMore, setLiveTrailHasMore] = useState(false);
@@ -61,7 +843,7 @@ export default function AdminUserDetailPage({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('timeline');
+  const [activeTab, setActiveTab] = useState(() => parsedRoute.initialTab);
 
   const [actionLoading, setActionLoading] = useState(false);
   const [terminatingSessions, setTerminatingSessions] = useState(false);
@@ -72,14 +854,39 @@ export default function AdminUserDetailPage({
   const [banLinkedCluster, setBanLinkedCluster] = useState(false);
   const [blockDeviceSignals, setBlockDeviceSignals] = useState(false);
 
+  const loadAbuseEvidence = useCallback(async () => {
+    if (!effectiveUserId) return;
+    setAbuseLoading(true);
+    setAbuseError('');
+    try {
+      const encodedId = encodeURIComponent(effectiveUserId);
+      const res = await adminFetch(`${API_BASE}/admin/users/${encodedId}/abuse-evidence`, {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: getAdminAuthHeaders()
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `Failed to load abuse evidence (${res.status}).`);
+      }
+      setAbuseEvidence(json);
+    } catch (err) {
+      setAbuseError(err.message || 'Could not load forensic abuse evidence.');
+    } finally {
+      setAbuseLoading(false);
+    }
+  }, [effectiveUserId]);
+
   const loadUserDossier = useCallback(async () => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
     setLoading(true);
     setError('');
+    setAbuseLoading(true);
+    setAbuseError('');
     try {
-      const encodedId = encodeURIComponent(userId);
+      const encodedId = encodeURIComponent(effectiveUserId);
       const headers = getAdminAuthHeaders();
-      const [activityRes, trailRes, ctxRes] = await Promise.all([
+      const [activityRes, trailRes, ctxRes, abuseRes] = await Promise.all([
         adminFetch(`${API_BASE}/admin/users/${encodedId}/activity`, {
           credentials: 'include',
           cache: 'no-store',
@@ -90,7 +897,12 @@ export default function AdminUserDetailPage({
           cache: 'no-store',
           headers
         }).catch(() => null),
-        globalThis.fetch(`${API_BASE}/admin/support/users/${encodedId}/context`, {
+        adminFetch(`${API_BASE}/admin/support/users/${encodedId}/context`, {
+          credentials: 'include',
+          cache: 'no-store',
+          headers
+        }).catch(() => null),
+        adminFetch(`${API_BASE}/admin/users/${encodedId}/abuse-evidence`, {
           credentials: 'include',
           cache: 'no-store',
           headers
@@ -102,6 +914,20 @@ export default function AdminUserDetailPage({
         throw new Error(activityJson.error || `Failed to load user profile (${activityRes.status}).`);
       }
       setDossier(activityJson);
+
+      if (abuseRes && abuseRes.ok) {
+        const abuseJson = await abuseRes.json().catch(() => ({}));
+        if (abuseJson?.success) {
+          setAbuseEvidence(abuseJson);
+        } else {
+          setAbuseEvidence(null);
+          setAbuseError(abuseJson?.error || 'Could not load forensic abuse evidence.');
+        }
+      } else if (abuseRes) {
+        const errJson = await abuseRes.json().catch(() => ({}));
+        setAbuseEvidence(null);
+        setAbuseError(errJson?.error || `Failed to load abuse evidence (${abuseRes.status}).`);
+      }
 
       if (ctxRes && ctxRes.ok) {
         const ctxJson = await ctxRes.json().catch(() => ({}));
@@ -128,21 +954,22 @@ export default function AdminUserDetailPage({
       setError(err.message || 'Could not load user profile & biometric details.');
     } finally {
       setLoading(false);
+      setAbuseLoading(false);
     }
-  }, [userId]);
+  }, [effectiveUserId]);
 
   useEffect(() => {
-    setActiveTab('timeline');
+    setActiveTab(parsedRoute.initialTab);
     loadUserDossier();
-  }, [loadUserDossier]);
+  }, [parsedRoute.initialTab, loadUserDossier]);
 
   const handleLoadOlderLiveTrail = async () => {
-    if (!userId || !liveTrailCursor || liveTrailLoadingMore) return;
+    if (!effectiveUserId || !liveTrailCursor || liveTrailLoadingMore) return;
     setLiveTrailLoadingMore(true);
     try {
       const params = new URLSearchParams({ limit: '30', beforeId: String(liveTrailCursor) });
       const res = await adminFetch(
-        `${API_BASE}/admin/telemetry/users/${encodeURIComponent(userId)}/live-trail?${params.toString()}`,
+        `${API_BASE}/admin/telemetry/users/${encodeURIComponent(effectiveUserId)}/live-trail?${params.toString()}`,
         {
           credentials: 'include',
           headers: getAdminAuthHeaders()
@@ -163,7 +990,7 @@ export default function AdminUserDetailPage({
   };
 
   const handleTerminateUserSessions = async () => {
-    const targetId = dossier?.user?.id || userId;
+    const targetId = dossier?.user?.id || effectiveUserId;
     if (!targetId || terminatingSessions) return;
     setTerminatingSessions(true);
     try {
@@ -190,7 +1017,7 @@ export default function AdminUserDetailPage({
   };
 
   const handleRevokeBiometric = async () => {
-    const targetId = dossier?.user?.id || userId;
+    const targetId = dossier?.user?.id || effectiveUserId;
     if (!targetId || revokingBiometric) return;
     setRevokingBiometric(true);
     try {
@@ -358,18 +1185,26 @@ export default function AdminUserDetailPage({
   const walletCash =
     userContext?.wallet?.credits ??
     userContext?.cashBalance ??
+    dossier?.wallet?.credits ??
     dossierUser?.cashBalance ??
     0;
   const walletPromo =
     userContext?.wallet?.promotionalCredits ??
     userContext?.promoCreditBalance ??
+    dossier?.wallet?.promotionalCredits ??
     dossierUser?.promoCreditBalance ??
     0;
-  const userStores = Array.isArray(userContext?.stores)
-    ? userContext.stores
-    : Array.isArray(dossier?.stores)
-      ? dossier.stores
-      : [];
+  const userStores =
+    Array.isArray(userContext?.stores) && userContext.stores.length > 0
+      ? userContext.stores
+      : Array.isArray(dossier?.stores)
+        ? dossier.stores
+        : [];
+  const promoExpiresAt =
+    userContext?.wallet?.promotionalExpiresAt ||
+    dossier?.wallet?.promotionalExpiresAt ||
+    dossierUser?.promotionalExpiresAt ||
+    null;
   const activeSessionsList = Array.isArray(userContext?.activeSessions)
     ? userContext.activeSessions
     : Array.isArray(dossier?.activeSessions)
@@ -500,7 +1335,7 @@ export default function AdminUserDetailPage({
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => onNavigate?.(`user-locations/${encodeURIComponent(dossierUser?.id || userId)}`)}
+                  onClick={() => onNavigate?.(`user-locations/${encodeURIComponent(dossierUser?.id || effectiveUserId)}`)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:border-[#1ED760]"
                 >
                   <MapPin className="w-3.5 h-3.5" />
@@ -509,7 +1344,7 @@ export default function AdminUserDetailPage({
 
                 <button
                   type="button"
-                  onClick={() => onNavigate?.(`identity-verification/${encodeURIComponent(dossierUser?.id || userId)}`)}
+                  onClick={() => onNavigate?.(`identity-verification/${encodeURIComponent(dossierUser?.id || effectiveUserId)}`)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:border-[#1ED760]"
                 >
                   <BadgeCheck className="w-3.5 h-3.5" />
@@ -644,7 +1479,7 @@ export default function AdminUserDetailPage({
           onTerminateSessions={handleTerminateUserSessions}
           onRevokeBiometric={handleRevokeBiometric}
           onOpenIdentityReview={() =>
-            onNavigate?.(`identity-verification/${encodeURIComponent(dossierUser?.id || userId)}`)
+            onNavigate?.(`identity-verification/${encodeURIComponent(dossierUser?.id || effectiveUserId)}`)
           }
         />
       )}
@@ -653,21 +1488,48 @@ export default function AdminUserDetailPage({
       {dossier && (
         <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-4 sm:p-5 space-y-4">
           <div className="flex items-center gap-1 border-b border-neutral-200/80 dark:border-neutral-800 overflow-x-auto no-scrollbar">
-            {DETAIL_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-[#1ED760] text-neutral-900 dark:text-white'
-                    : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {DETAIL_TABS.map((tab) => {
+              const flagCount = tab.id === 'abuse-evidence'
+                ? Number(abuseEvidence?.summaryCounts?.totalFlags || 0)
+                : 0;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (typeof window !== 'undefined' && window.history?.replaceState) {
+                      const nextUrl = new URL(window.location.href);
+                      nextUrl.searchParams.set('tab', tab.id);
+                      window.history.replaceState(window.history.state, '', `${nextUrl.pathname}${nextUrl.search}`);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeTab === tab.id
+                      ? 'border-[#1ED760] text-neutral-900 dark:text-white'
+                      : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  {flagCount > 0 && (
+                    <Badge variant="destructive" className="px-1.5 py-0 text-[10px] tabular-nums">
+                      {flagCount}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {activeTab === 'abuse-evidence' && (
+            <AbuseEvidenceTabPanel
+              abuseEvidence={abuseEvidence}
+              abuseLoading={abuseLoading}
+              abuseError={abuseError}
+              dossierUser={dossierUser}
+              onRetry={loadAbuseEvidence}
+            />
+          )}
 
           {activeTab === 'timeline' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -767,7 +1629,34 @@ export default function AdminUserDetailPage({
           )}
 
           {activeTab === 'stores' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/50 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-neutral-500">Deposited Cash Wallet (credits)</span>
+                    <Badge variant="secondary">Cash Bucket</Badge>
+                  </div>
+                  <p className="text-xl font-bold tabular-nums text-neutral-950 dark:text-white">
+                    {formatUsd(walletCash)}
+                  </p>
+                  <p className="text-[11px] text-neutral-500">
+                    Real paid gateway deposits. Used only after Promotional Credits finish or expire.
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Promotional Credits Wallet (promotional_credits)</span>
+                    <Badge variant="warning">PROMO</Badge>
+                  </div>
+                  <p className="text-xl font-bold tabular-nums text-amber-700 dark:text-amber-400">
+                    {formatUsd(walletPromo)}
+                  </p>
+                  <p className="text-[11px] text-neutral-500">
+                    {promoExpiresAt ? `Expires ${formatDateTime(promoExpiresAt)}` : 'Non-cash promotional gift credits kept strictly separate from paid cash.'}
+                  </p>
+                </div>
+              </div>
+
               <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
                 Owned Stores ({userStores.length})
               </h4>

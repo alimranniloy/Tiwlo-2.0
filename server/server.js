@@ -54,6 +54,7 @@ import adminRoutes, {
   adminStaffRouter,
   adminRiskRouter,
   adminFleetRouter,
+  adminPackageRouter,
   adminPlatformOpsRouter,
   adminSupportRouter,
   adminChatSystemRouter,
@@ -67,6 +68,7 @@ import { startSupportAutomationScheduler } from './support/ticketingService.js';
 import { warmupFaceLivenessEngine } from './security/faceLivenessEngine.js';
 import { startAutomatedLogRetentionScheduler } from './db/logRotationService.js';
 import { ensureServiceSubscriptionsSchema, startServiceRenewalScheduler } from './db/serviceSubscriptions.js';
+import { createSmartTrafficShieldMiddleware } from './security/smartTrafficShield.js';
 import whatsappRoutes from './whatsapp/whatsappRoutes.js';
 import { WhatsAppManager } from './whatsapp/whatsappManager.js';
 import tpanelRoutes from '../service/TPanel/server/tpanelRoutes.js';
@@ -365,6 +367,9 @@ app.use(async (req, res, next) => {
 // Record suspicious automation and authenticated dashboard write activity
 // after session resolution so administrators can review durable security events.
 app.use(optionalSecurityMiddleware);
+if (process.env.NODE_ENV !== 'test') {
+  app.use(createSmartTrafficShieldMiddleware({ requireVerifiedAuth: true }));
+}
 
 // Enterprise GraphQL Endpoint
 app.use('/graphql', createGraphQLMiddleware());
@@ -437,6 +442,16 @@ app.get(['/api/landing/hero-video', '/landing/hero-bg.mp4'], (req, res) => {
 // 4. MOUNT MODULAR API ROUTERS
 // ==========================================
 // Tiwi Social Ecosystem (Mobile & Web)
+const TPANEL_ENABLED = String(process.env.TPANEL_ENABLED || '').toLowerCase() === 'true';
+const tpanelDisabledRouter = express.Router();
+tpanelDisabledRouter.use((_req, res) => {
+  res.status(403).json({
+    error: 'TPanel Control Panel and File Manager are disabled.',
+    code: 'TPANEL_DISABLED'
+  });
+});
+
+// Mount Unified GraphQL Bridge (transparent REST multiplexer behind /api/graphql)
 const applicationRoutes = [
   ['/api/social', socialRoutes], ['/api/tiwi', socialRoutes],
   ['/api/social', ecosystemRoutes], ['/api/tiwi', ecosystemRoutes],
@@ -445,15 +460,16 @@ const applicationRoutes = [
   ['/api/admin', adminStaffRouter],
   ['/api/admin', adminRiskRouter],
   ['/api/admin/fleet', adminFleetRouter],
+  ['/api/admin/server-packages', adminPackageRouter],
   ['/api/admin', adminPlatformOpsRouter],
   ['/api/admin', adminSupportRouter],
   ['/api/admin', adminChatSystemRouter],
   ['/api/admin/telemetry', adminTelemetryRouter],
   ['/api/whatsapp', whatsappRoutes],
   ['/api/subdomains', subdomainRoutes],
-  ['/api/plugins/tpanel', tpanelRoutes], ['/api/plugins/whatsapp', whatsappRoutes],
+  ['/api/plugins/tpanel', TPANEL_ENABLED ? tpanelRoutes : tpanelDisabledRouter], ['/api/plugins/whatsapp', whatsappRoutes],
   ['/api/plugins/support-ai', supportRoutes],
-  ['/api/tpanel', tpanelRoutes], ['/api/support', supportRoutes],
+  ['/api/tpanel', TPANEL_ENABLED ? tpanelRoutes : tpanelDisabledRouter], ['/api/support', supportRoutes],
   ['/api/telemetry', telemetryRoutes],
   ['/api/email', emailRoutes], ['/api/mail', emailRoutes],
   ['/api/plugins/discord', discordRoutes], ['/api/discord', discordRoutes], ['/api', authRoutes], ['/api', userAccountRoutes],
@@ -481,12 +497,13 @@ app.use('/api/tiwi/chat', chatRoutes);
 
 // Tiwlo Administrator Platform
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/server-packages', adminPackageRouter);
 
 // WhatsApp Automation Gateway
 app.use('/api/whatsapp', whatsappRoutes);
 
-// TPanel Control Panel Service
-app.use('/api/tpanel', tpanelRoutes);
+// TPanel Control Panel Service (locked down by default unless explicitly enabled)
+app.use('/api/tpanel', TPANEL_ENABLED ? tpanelRoutes : tpanelDisabledRouter);
 
 // Tiwi Live Support & AI Assistance
 app.use('/api/support', supportRoutes);
@@ -522,7 +539,11 @@ app.use('/api', systemRoutes);
 app.use('/api', storeRoutes);
 
 // Modular Plugin Registry & Add-ons Endpoints (Rule 6)
-await pluginManager.registerPlugin(tpanelPlugin);
+if (TPANEL_ENABLED) {
+  await pluginManager.registerPlugin(tpanelPlugin);
+} else {
+  app.use('/api/plugins/tpanel', tpanelDisabledRouter);
+}
 await pluginManager.registerPlugin(whatsappPlugin);
 await pluginManager.registerPlugin(supportAiPlugin);
 await pluginManager.registerPlugin(securityPlugin);
@@ -840,6 +861,49 @@ async function startServer() {
     startServiceRenewalScheduler();
     startSupportAutomationScheduler();
     startAutomatedLogRetentionScheduler();
+
+    // Cloud VPS IPv6 Pool, Monthly Billing, Server Packages, Telemetry & Security Enforcers
+    try {
+      const [
+        { ensureIpv6PoolSchema },
+        { ensureDropletBillingSchema, runMonthlyDropletBillingSweep },
+        { ensureServerPackageSchema },
+        { ensureDropletTelemetrySchema },
+        { ensureAccountLifecycleSchema, runPermanentBanPurgeSweep },
+        { ensureVpsAbuseGuardSchema },
+        { deactivateAllIpBlockSignals }
+      ] = await Promise.all([
+        import('./ubuntu/ipv6PoolService.js'),
+        import('./db/cloudDropletBilling.js'),
+        import('./administrator/serverPackageService.js'),
+        import('./db/dropletTelemetry.js'),
+        import('./security/accountLifecycleEnforcer.js'),
+        import('./security/vpsAbuseGuardService.js'),
+        import('./security/freeTierAbuseGuard.js')
+      ]);
+
+      await Promise.all([
+        ensureIpv6PoolSchema(),
+        ensureDropletBillingSchema(),
+        ensureServerPackageSchema(),
+        ensureDropletTelemetrySchema(),
+        ensureAccountLifecycleSchema(),
+        ensureVpsAbuseGuardSchema(),
+        deactivateAllIpBlockSignals()
+      ]);
+
+      const billingTimer = setInterval(() => {
+        runMonthlyDropletBillingSweep().catch((err) =>
+          console.warn('[Cloud Monthly Billing Sweep Notice]', err?.message || err)
+        );
+        runPermanentBanPurgeSweep().catch((err) =>
+          console.warn('[Permanent Ban Purge Sweep Notice]', err?.message || err)
+        );
+      }, 5 * 60 * 1000);
+      billingTimer.unref?.();
+    } catch (cloudInitErr) {
+      console.warn('[Cloud Subsystem Bootstrap Notice]', cloudInitErr?.message || cloudInitErr);
+    }
   }
   WhatsAppManager.init().catch(err => console.warn('⚠️ WhatsApp Manager init notice:', err.message));
   await SocialDB.hydrateFromPg();

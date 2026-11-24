@@ -3,12 +3,13 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ToastNotification from './components/ToastNotification';
+import SecurityChallengeGate from './components/SecurityChallengeGate';
 import LoginLocationCapture from './components/LoginLocationCapture';
 import FreeStoreAttribution from './components/FreeStoreAttribution';
 import LandingPage from './landing/LandingPage';
 import LoginView from './views/LoginView';
 import CreateAccountView from './views/CreateAccountView';
-import { RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShieldAlert } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
 import { isAuthSubdomain, isDashboardSubdomain, isMailSubdomain, isTPanelSubdomain, getAuthUrl, getMainAppUrl, getMailUrl, getDashboardUrl, getUidsDashboardUrl, getTPanelUrl } from './utils/navigation';
 import {
@@ -60,7 +61,6 @@ const DeleteAccountView = lazy(() => import('./views/DeleteAccountView'));
 const NotFoundView = lazy(() => import('./views/NotFoundView'));
 const UnavailablePage = lazy(() => import('./components/UnavailablePage'));
 const StoreSuspendedPage = lazy(() => import('./components/StoreSuspendedPage'));
-const TPanelDashboard = lazy(() => import('./services/tpanel/TPanelDashboard'));
 const AdminDashboard = lazy(() => import('./administrator').then(m => ({ default: m.AdminDashboard })));
 
 // TiwloMart / TiwiMart eCommerce Multi-Vendor Theme
@@ -229,27 +229,9 @@ export default function App() {
       if (isUidsLandingRoot) return 'subdomain';
       if (isUidsAuthorizationPath) return 'uids-authorize';
 
-      if (isTpanelPath && !isTPanelSubdomain() &&
-          (hostname === PLATFORM_DOMAIN || hostname === `www.${PLATFORM_DOMAIN}` ||
-            hostname === 'localhost' || hostname === '127.0.0.1')) {
-        window.location.replace(`${getTPanelUrl(window.location.pathname)}${window.location.search}${window.location.hash}`);
-        return 'tpanel';
-      }
-
       if (isDashboardSubdomain() && (!pathname || pathname === 'dashboard')) {
         window.history.replaceState(null, '', `/oneprofile${window.location.search}${window.location.hash}`);
         return 'oneprofile';
-      }
-
-      if (isTPanelSubdomain() &&
-          ['login', 'signin', 'create-account', 'register', 'signup'].includes(pathname)) {
-        const isRegistration = ['create-account', 'register', 'signup'].includes(pathname);
-        const authPath = isRegistration ? '/create-account' : '/login';
-        const authQuery = new URLSearchParams(window.location.search);
-        authQuery.set('return_to', getTPanelUrl('/'));
-        authQuery.set('sso_login', '1');
-        window.location.replace(getAuthUrl(`${authPath}?${authQuery.toString()}`));
-        return isRegistration ? 'create-account' : 'login';
       }
 
       if (isMailSubdomain() &&
@@ -265,8 +247,18 @@ export default function App() {
         return isRegistration ? 'create-account' : 'login';
       }
 
-      // TPanel Subdomain or Direct Route Detection
-      const isTpanelRoute = !isAuthSubdomain() && (isTPanelSubdomain() || pathname === 'tpanel' || pathname.startsWith('tpanel/') || searchParams.get('panel') === 'tpanel' || searchParams.get('tab') === 'tpanel' || searchParams.get('view') === 'tpanel');
+      // TPanel & File Manager Lockdown Detection (Subdomain, Path, or Query)
+      const isTpanelRoute = !isAuthSubdomain() && (
+        isTPanelSubdomain() ||
+        isTpanelPath ||
+        pathname === 'file-manager' ||
+        pathname.startsWith('file-manager/') ||
+        searchParams.get('panel') === 'tpanel' ||
+        searchParams.get('tab') === 'tpanel' ||
+        searchParams.get('view') === 'tpanel' ||
+        searchParams.get('tab') === 'file-manager' ||
+        searchParams.get('view') === 'file-manager'
+      );
 
       if (isTpanelRoute) {
         return 'tpanel';
@@ -457,7 +449,34 @@ export default function App() {
         }
 
         if (pathname === 'ecommerce' || pathname === 'store-dashboard' || pathname === 'ecommerce-dashboard') return 'ecommerce-dashboard';
-        if (pathname === 'cloud' || pathname === 'dashboard') return 'dashboard';
+        if (pathname === 'cloud') return 'cloud';
+        if (pathname === 'dashboard') return 'dashboard';
+        if (pathname === 'cloud/services' || pathname === 'workspace-hub') return 'cloud/services';
+        if (pathname === 'cloud/online-store' || pathname === 'my-online-store') return 'cloud/online-store';
+        if (pathname === 'cloud/create-store') return 'cloud/create-store';
+        if (pathname === 'cloud/marketplace' || pathname.startsWith('cloud/marketplace/')) return pathname;
+        if (pathname === 'cloud/create-droplet' || pathname === 'create-droplet') return 'cloud/create-droplet';
+        if (pathname === 'cloud/droplets' || pathname.startsWith('cloud/droplets/') || pathname === 'my-droplets') {
+          return pathname === 'my-droplets' ? 'cloud/droplets' : pathname;
+        }
+        if (pathname === 'cloud/images' || pathname === 'images') return 'cloud/images';
+        if (pathname === 'cloud/snapshots' || pathname === 'snapshots') return 'cloud/snapshots';
+        if (pathname === 'cloud/backups' || pathname === 'backups') return 'cloud/backups';
+        if (pathname === 'cloud/volumes' || pathname === 'volumes') return 'cloud/volumes';
+        if (pathname === 'cloud/kubernetes' || pathname === 'kubernetes') return 'cloud/kubernetes';
+        if (pathname === 'cloud/identity') return 'cloud/identity';
+        if (pathname === 'cloud/whatsapp' || pathname.startsWith('cloud/whatsapp/')) return 'cloud/whatsapp';
+        if (pathname === 'cloud/help' || pathname.startsWith('cloud/help/')) return pathname;
+        if (pathname === 'cloud/domains') return 'cloud/domains';
+        if (pathname === 'cloud/workspace' || pathname.startsWith('cloud/workspace/')) {
+          return pathname.slice('cloud/'.length);
+        }
+        if (pathname === 'cloud/profile-settings' || pathname.startsWith('cloud/profile-settings/')) {
+          return pathname.slice('cloud/'.length);
+        }
+        if (pathname === 'cloud/active-sessions') return 'active-sessions';
+        if (pathname === 'cloud/two-factor-auth') return 'two-factor-auth';
+        if (pathname === 'cloud/team-management') return 'team-management';
         if (pathname === 'domains') return 'domains';
         if (pathname === 'store') return 'store';
         if (pathname === 'pos') return 'pos';
@@ -794,20 +813,24 @@ export default function App() {
       return;
     }
 
-    if (tabId === 'tpanel' || (typeof tabId === 'string' && tabId.startsWith('tpanel/'))) {
-      if (!isTPanelSubdomain()) {
-        const panelPath = typeof tabId === 'string' && tabId.startsWith('tpanel/')
-          ? `/${tabId}`
-          : '/';
-        window.location.assign(getTPanelUrl(panelPath));
-        return;
-      }
+    if (
+      tabId === 'tpanel' ||
+      tabId === 'file-manager' ||
+      (typeof tabId === 'string' && (tabId.startsWith('tpanel/') || tabId.startsWith('file-manager/')))
+    ) {
       setActiveTab('tpanel');
-      const panelPath = typeof tabId === 'string' && tabId.startsWith('tpanel/')
-        ? `/${tabId}`
-        : '/';
+      const panelPath = `/${tabId.replace(/^\/+/, '')}`;
       if (window.location.pathname !== panelPath) {
         window.history.pushState(null, '', panelPath);
+      }
+      return;
+    }
+
+    if (tabId === 'cloud' || (typeof tabId === 'string' && tabId.startsWith('cloud/'))) {
+      setActiveTab(tabId);
+      const targetCloudPath = `/${tabId}`;
+      if (window.location.pathname !== targetCloudPath) {
+        window.history.pushState(null, '', targetCloudPath);
       }
       return;
     }
@@ -1214,9 +1237,12 @@ export default function App() {
               const currentParams = new URLSearchParams(window.location.search);
               const isTpanelRoute = isTPanelSubdomain() ||
                 path === 'tpanel' || path.startsWith('tpanel/') ||
+                path === 'file-manager' || path.startsWith('file-manager/') ||
                 currentParams.get('panel') === 'tpanel' ||
                 currentParams.get('tab') === 'tpanel' ||
-                currentParams.get('view') === 'tpanel';
+                currentParams.get('view') === 'tpanel' ||
+                currentParams.get('tab') === 'file-manager' ||
+                currentParams.get('view') === 'file-manager';
               if (isTpanelRoute) {
                 setActiveTab('tpanel');
                 return;
@@ -1283,9 +1309,16 @@ export default function App() {
         const currentParams = new URLSearchParams(window.location.search);
         const isTpanelRoute = window.location.hostname.toLowerCase().startsWith('tpanel.') ||
           path === 'tpanel' || path.startsWith('tpanel/') ||
+          path === 'file-manager' || path.startsWith('file-manager/') ||
           currentParams.get('panel') === 'tpanel' ||
           currentParams.get('tab') === 'tpanel' ||
-          currentParams.get('view') === 'tpanel';
+          currentParams.get('view') === 'tpanel' ||
+          currentParams.get('tab') === 'file-manager' ||
+          currentParams.get('view') === 'file-manager';
+        if (isTpanelRoute) {
+          setActiveTab('tpanel');
+          return;
+        }
         const isPublicPath = isStorefrontSubdomainHost() ||
           (!isMailSubdomain() && path === '') || path === 'landing' || path === 'home' ||
           path === 'verification' || path.startsWith('verification/') ||
@@ -1297,18 +1330,13 @@ export default function App() {
           path === 'uids' || path === 'uids.app' || path.startsWith('uids/') ||
           path === 'one-profile' || path.startsWith('one-profile/');
 
-        if (!isPublicPath || isTpanelRoute || (isDashboardSubdomain() && !isUidsLandingRoot)) {
+        if (!isPublicPath || (isDashboardSubdomain() && !isUidsLandingRoot)) {
           if (isMailSubdomain()) {
             const returnTo = getMailUrl(window.location.pathname + window.location.search + window.location.hash);
             const bridgeUrl = `${getMainAppUrl('/api/auth/sso/web-start')}?return_to=${encodeURIComponent(returnTo)}`;
             window.location.replace(bridgeUrl);
-          } else if (isTPanelSubdomain()) {
-            const returnTo = getTPanelUrl(path === 'tpanel' || path.startsWith('tpanel/') ? `/${path}` : '/');
-            window.location.replace(getAuthUrl(`/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`));
           } else {
-            const requestedPath = isTpanelRoute && !path
-              ? `/tpanel${window.location.search}`
-              : window.location.pathname + window.location.search;
+            const requestedPath = window.location.pathname + window.location.search;
             const redirectQuery = isDashboardSubdomain()
               ? `return_to=${encodeURIComponent(window.location.origin + requestedPath)}`
               : `redirect=${encodeURIComponent(requestedPath)}`;
@@ -2229,7 +2257,7 @@ export default function App() {
 
       {/* DEDICATED AUTHENTICATION, LANDING & ONBOARDING VIEWS */}
       <Suspense fallback={<TiwloTopSyncBar active={true} />}>
-        {authChecking && (activeTab === 'administrator' || activeTab === 'admin' || activeTab.startsWith('administrator/') || activeTab.startsWith('admin/') || activeTab === 'tpanel') ? (
+        {authChecking && (activeTab === 'administrator' || activeTab === 'admin' || activeTab.startsWith('administrator/') || activeTab.startsWith('admin/')) ? (
           <TiwloPageLoader />
         ) : !authChecking && currentUser &&
           (currentUser.addressVerified !== true || activeTab === 'address-verification') ? (
@@ -2340,7 +2368,7 @@ export default function App() {
             }
           }}
         />
-      ) : (activeTab === 'administrator' || activeTab === 'admin' || activeTab.startsWith('administrator/') || activeTab.startsWith('admin/')) ? (
+      ) : (!authChecking && currentUser && (activeTab === 'administrator' || activeTab === 'admin' || activeTab.startsWith('administrator/') || activeTab.startsWith('admin/'))) ? (
         <AdminDashboard
           currentUser={currentUser}
           onLogout={handleLogout}
@@ -2348,10 +2376,35 @@ export default function App() {
           showToast={showToast}
         />
       ) : activeTab === 'tpanel' ? (
-        <TPanelDashboard
-          currentUser={currentUser}
-          onLogout={handleLogout}
-        />
+        <div className="min-h-screen bg-[#fafafa] dark:bg-neutral-950 flex items-center justify-center px-4 py-12 font-sans">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-7 text-center shadow-sm space-y-5">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+              <ShieldAlert className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-lg font-bold tracking-tight text-neutral-950 dark:text-white">
+                TPanel Control Panel &amp; File Manager are currently disabled / unavailable.
+              </h1>
+              <p className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+                Access to TPanel and the web File Manager has been locked. Manage your VPS instances, Browser SSH console, and cloud networking directly from Tiwlo Cloud.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (isTPanelSubdomain()) {
+                  window.location.assign(getMainAppUrl('/cloud'));
+                } else {
+                  handleTabChange('cloud');
+                }
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1ED760] hover:bg-[#19c354] px-5 py-2.5 text-xs font-bold text-black transition cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              <span>Back to Cloud</span>
+            </button>
+          </div>
+        </div>
       ) : authChecking ? (
         <TiwloPageLoader />
       ) : activeTab === 'uids-authorize' ? (
@@ -2604,6 +2657,9 @@ export default function App() {
         </div>
       ) : (
         activeTab === 'dashboard' ||
+        activeTab === 'cloud' ||
+        activeTab.startsWith('cloud/') ||
+        activeTab === 'my-droplets' ||
         activeTab === 'identity' ||
         activeTab === 'billing' ||
         activeTab.startsWith('billing') ||
@@ -2622,25 +2678,39 @@ export default function App() {
       ) ? (
         <CloudDashboard
           currentUser={currentUser}
-          initialNav={
-            activeTab === 'identity'
-              ? 'identity'
-              : activeTab === 'billing' || activeTab.startsWith('billing')
-                ? 'billing'
-                : activeTab === 'domains'
-                  ? 'domains'
-                  : (activeTab.startsWith('workspace/') ||
-                    activeTab === 'workspace-hub' ||
-                    activeTab.startsWith('marketplace') ||
-                    activeTab.startsWith('whatsapp-automation') ||
-                    activeTab === 'profile-settings' ||
-                    activeTab.startsWith('profile-settings/') ||
-                    activeTab === 'two-factor-auth' ||
-                    activeTab === 'active-sessions' ||
-                    activeTab === 'team-management')
-                    ? activeTab
-                    : 'dashboard'
-          }
+          initialNav={(() => {
+            if (activeTab === 'cloud' || activeTab === 'dashboard' || activeTab === 'workspace') return 'dashboard';
+            if (activeTab === 'cloud/services' || activeTab === 'workspace/hub' || activeTab === 'workspace-hub') return 'workspace-hub';
+            if (activeTab === 'cloud/online-store') return 'my-online-store';
+            if (activeTab === 'cloud/create-store') return 'create-store';
+            if (activeTab === 'cloud/marketplace') return 'marketplace';
+            if (activeTab.startsWith('cloud/marketplace/')) return activeTab.slice('cloud/'.length);
+            if (activeTab === 'cloud/create-droplet') return 'create-droplet';
+            if (activeTab === 'cloud/droplets' || activeTab.startsWith('cloud/droplets/') || activeTab === 'my-droplets') return activeTab;
+            if (activeTab === 'cloud/images') return 'images';
+            if (activeTab === 'cloud/snapshots') return 'snapshots';
+            if (activeTab === 'cloud/backups') return 'backups';
+            if (activeTab === 'cloud/volumes') return 'volumes';
+            if (activeTab === 'cloud/kubernetes') return 'kubernetes';
+            if (activeTab === 'cloud/identity' || activeTab === 'identity') return 'identity';
+            if (activeTab === 'cloud/whatsapp' || activeTab.startsWith('cloud/whatsapp/') || activeTab.startsWith('whatsapp-automation')) return 'whatsapp-automation';
+            if (activeTab === 'cloud/help') return 'help-support';
+            if (activeTab.startsWith('cloud/help/')) return `help-support/${activeTab.slice('cloud/help/'.length)}`;
+            if (activeTab === 'cloud/domains' || activeTab === 'domains') return 'domains';
+            if (activeTab === 'billing' || activeTab.startsWith('billing')) return 'billing';
+            if (
+              activeTab.startsWith('workspace/') ||
+              activeTab.startsWith('marketplace') ||
+              activeTab === 'profile-settings' ||
+              activeTab.startsWith('profile-settings/') ||
+              activeTab === 'two-factor-auth' ||
+              activeTab === 'active-sessions' ||
+              activeTab === 'team-management'
+            ) {
+              return activeTab;
+            }
+            return 'dashboard';
+          })()}
           onLogout={handleLogout}
           onOpenStoreDashboard={handleStoreConsoleLaunch}
           onNavigateTab={handleTabChange}
@@ -3125,6 +3195,7 @@ export default function App() {
           />
         )}
       </Suspense>
+      <SecurityChallengeGate />
     </div>
   );
 }

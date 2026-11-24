@@ -1,7 +1,7 @@
 import React from 'react';
-import { ArrowUpRight, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
-export default function CloudHeroBanner({ currentUser, onCreateDroplet, onOpenTPanel }) {
+export default function CloudHeroBanner({ currentUser, onCreateDroplet }) {
   // Compute dynamic greeting based on local time
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -31,14 +31,6 @@ export default function CloudHeroBanner({ currentUser, onCreateDroplet, onOpenTP
           >
             <Plus className="size-4" aria-hidden="true" />
             Create Droplet
-          </button>
-          <button
-            type="button"
-            onClick={onOpenTPanel}
-            className="inline-flex h-10 items-center gap-2 rounded-full bg-white/10 px-5 text-sm font-bold text-white ring-1 ring-white/15 transition hover:bg-white/15"
-          >
-            Open TPanel
-            <ArrowUpRight className="size-4" aria-hidden="true" />
           </button>
         </div>
       </div>

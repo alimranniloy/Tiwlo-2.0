@@ -12,6 +12,36 @@
 
 import { PLATFORM_CONFIG, getPlatformUrl } from '../config/platformConfig.js';
 
+export function escapeEmailHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+export function stripEmailHeaderCrlf(value, maxLen = 200) {
+  return String(value ?? '')
+    .replace(/[\r\n\0]+/g, ' ')
+    .trim()
+    .slice(0, maxLen);
+}
+
+export function sanitizeEmailUrl(rawValue, fallback = getPlatformUrl()) {
+  const raw = String(rawValue ?? '').trim();
+  if (!raw) return fallback;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'mailto:') {
+      return parsed.toString();
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function renderBaseEmail({
   title,
   recipientEmail,
@@ -19,6 +49,9 @@ export function renderBaseEmail({
   preheader = ''
 }) {
   const currentYear = new Date().getFullYear();
+  const safeTitle = escapeEmailHtml(title || 'Tiwlo');
+  const safePreheader = escapeEmailHtml(preheader);
+  const safeRecipient = recipientEmail ? escapeEmailHtml(recipientEmail) : '';
 
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -28,7 +61,7 @@ export function renderBaseEmail({
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="x-apple-disable-message-reformatting">
   <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
-  <title>${title || 'Tiwlo'}</title>
+  <title>${safeTitle}</title>
   <!--[if mso]>
   <style>
     * { font-family: sans-serif !important; }
@@ -56,9 +89,9 @@ export function renderBaseEmail({
   </style>
 </head>
 <body style="margin: 0; padding: 0; width: 100%; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #ffffff;">
-  ${preheader ? `
+  ${safePreheader ? `
   <div style="display: none; font-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all; font-family: sans-serif;">
-    ${preheader}
+    ${safePreheader}
   </div>` : ''}
 
   <!-- Main Centered Layout Table -->
@@ -84,12 +117,12 @@ export function renderBaseEmail({
             </td>
           </tr>
 
-          ${recipientEmail ? `
+          ${safeRecipient ? `
           <!-- Recipient Account Chip -->
           <tr>
             <td align="center" style="padding: 0 32px 20px 32px;">
               <div style="display: inline-block; font-size: 13px; color: #5f6368; font-weight: 400; line-height: 18px; padding: 3px 12px; background-color: #f1f3f4; border-radius: 14px; font-family: Roboto, Arial, sans-serif;">
-                ${recipientEmail}
+                ${safeRecipient}
               </div>
             </td>
           </tr>

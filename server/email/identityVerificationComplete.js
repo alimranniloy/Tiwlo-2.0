@@ -1,8 +1,8 @@
-import { renderBaseEmail } from './baseTemplate.js';
+import { renderBaseEmail, escapeEmailHtml, sanitizeEmailUrl } from './baseTemplate.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
 
 export function renderIdentityVerificationCompleteEmail({ to, accountUrl }) {
-  const targetUrl = accountUrl || getPlatformUrl('dashboard');
+  const targetUrl = escapeEmailHtml(sanitizeEmailUrl(accountUrl, getPlatformUrl('dashboard')));
   const contentHtml = `
     <h1 style="margin:0 0 16px;font-size:24px;font-weight:400;line-height:32px;color:#202124;text-align:center;font-family:'Google Sans',Roboto,-apple-system,BlinkMacSystemFont,sans-serif;">
       Your account is verified

@@ -2,6 +2,7 @@ import { applicationFetch } from '../api/graphqlTransport.js';
 import { requestSensitiveActionGrant } from '../security/reauth.js';
 import { getDeviceTrackingHeaders } from '../utils/deviceFingerprint.js';
 import PaginationBar from '../components/PaginationBar';
+import { Badge, Button } from '../components/ui/shadcnPrimitives.jsx';
 import AdminBiometricVaultCard from './components/AdminBiometricVaultCard.jsx';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -14,6 +15,7 @@ import {
   CreditCard,
   Edit2,
   Eye,
+  FileSearch,
   Fingerprint,
   Globe,
   History,
@@ -110,6 +112,23 @@ function compactSignalLabel(signal) {
     'Blocked Device/Network Signal': 'Blocked Signal'
   };
   return map[signal] || signal;
+}
+
+function formatRiskFlagMeta(flag) {
+  switch (flag) {
+    case 'BAN_EVASION_RISK':
+      return { label: 'Ban Evasion', variant: 'destructive' };
+    case 'BLOCKED_SIGNAL_MATCH':
+      return { label: 'Blocked Signal', variant: 'destructive' };
+    case 'MULTI_ACCOUNT_RING':
+      return { label: 'Multi-Account Ring', variant: 'warning' };
+    case 'FREE_TIER_ABUSE_SIGNAL':
+      return { label: 'Free-Tier Abuse', variant: 'warning' };
+    case 'SHARED_IP_CLUSTER':
+      return { label: 'Shared IP', variant: 'secondary' };
+    default:
+      return { label: String(flag || '').replaceAll('_', ' '), variant: 'secondary' };
+  }
 }
 
 function getRiskBadgeStyle(riskLevel) {
@@ -448,6 +467,18 @@ export default function AdminUsersView({ onBackToDashboard, onNavigate, showToas
     }
     if (onNavigate && targetUser?.id) {
       onNavigate(`user-profile/${encodeURIComponent(targetUser.id)}`);
+      return;
+    }
+    openInspectionDrawer(targetUser);
+  };
+
+  const handleInspectEvidence = (targetUser) => {
+    if (isSuperAdminUser(targetUser) && !isSuperAdminActor) {
+      showToast?.('Restricted: Super Administrator activity is isolated.', 'error');
+      return;
+    }
+    if (onNavigate && targetUser?.id) {
+      onNavigate(`user-profile/${encodeURIComponent(targetUser.id)}?tab=abuse-evidence`);
       return;
     }
     openInspectionDrawer(targetUser);
@@ -1221,7 +1252,7 @@ export default function AdminUsersView({ onBackToDashboard, onNavigate, showToas
                             <Lock className="w-3 h-3" /> Protected
                           </span>
                         ) : (
-                          <div className="space-y-1.5 max-w-[240px]">
+                          <div className="space-y-1.5 max-w-[260px]">
                             <div className="flex items-center gap-2">
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border tabular-nums ${riskStyle.pill}`}
@@ -1236,12 +1267,44 @@ export default function AdminUsersView({ onBackToDashboard, onNavigate, showToas
                               </div>
                             </div>
 
-                            {(intel.matchedSignals?.length > 0 || bannedSiblingCount > 0) && (
+                            {u.isBanned && u.banReason && (
+                              <div
+                                title={u.banReason}
+                                className="flex items-center gap-1"
+                              >
+                                <Badge
+                                  variant="destructive"
+                                  className="max-w-[250px] truncate px-1.5 py-0.5 text-[10px] rounded-md"
+                                >
+                                  <Ban className="w-2.5 h-2.5 shrink-0" />
+                                  <span className="truncate">{u.banReason}</span>
+                                </Badge>
+                              </div>
+                            )}
+
+                            {((intel.flags?.length || 0) > 0 || intel.matchedSignals?.length > 0 || bannedSiblingCount > 0) && (
                               <div className="flex flex-wrap gap-1">
                                 {bannedSiblingCount > 0 && (
-                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 tabular-nums">
+                                  <Badge variant="destructive" className="px-1.5 py-0.5 text-[10px] rounded-md tabular-nums">
                                     Banned Sibling ({bannedSiblingCount})
-                                  </span>
+                                  </Badge>
+                                )}
+                                {(intel.flags || []).slice(0, 2).map((flag) => {
+                                  const meta = formatRiskFlagMeta(flag);
+                                  return (
+                                    <Badge
+                                      key={flag}
+                                      variant={meta.variant}
+                                      className="px-1.5 py-0.5 text-[10px] rounded-md"
+                                    >
+                                      {meta.label}
+                                    </Badge>
+                                  );
+                                })}
+                                {(intel.flags?.length || 0) > 2 && (
+                                  <Badge variant="outline" className="px-1.5 py-0.5 text-[10px] rounded-md tabular-nums">
+                                    +{intel.flags.length - 2} flags
+                                  </Badge>
                                 )}
                                 {(intel.matchedSignals || []).slice(0, 2).map((sig) => (
                                   <span
@@ -1282,18 +1345,35 @@ export default function AdminUsersView({ onBackToDashboard, onNavigate, showToas
                       >
                         <div className="flex items-center justify-end gap-1">
                           {!hideSuperAdminIntel && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenUserProfile(u);
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-[#1ED760] hover:text-neutral-900 dark:hover:text-white transition-colors"
-                              title="Open Full User Profile & Stored Fingerprint Page"
-                            >
-                              <Eye className="w-3 h-3" />
-                              <span className="hidden xl:inline">Inspect Profile</span>
-                            </button>
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleInspectEvidence(u);
+                                }}
+                                className="h-7 px-2 text-[11px] font-semibold border-neutral-200/80 dark:border-neutral-800 hover:border-rose-500/60 hover:text-rose-600 dark:hover:text-rose-400"
+                                title="Inspect Forensic Abuse Logs, Service Holds & Risk Evidence"
+                              >
+                                <FileSearch className="w-3 h-3 shrink-0" />
+                                <span>Inspect Logs &amp; Evidence</span>
+                              </Button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenUserProfile(u);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-[#1ED760] hover:text-neutral-900 dark:hover:text-white transition-colors"
+                                title="Open Full User Profile & Stored Fingerprint Page"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span className="hidden xl:inline">Inspect Profile</span>
+                              </button>
+                            </>
                           )}
 
                           <button

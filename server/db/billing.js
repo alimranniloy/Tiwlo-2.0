@@ -759,14 +759,19 @@ export const BillingDB = {
         WHERE UPPER(BTRIM(code)) = $1 AND is_redeemed = FALSE
         RETURNING id, amount
       ), updated_account AS (
-        INSERT INTO cloud_billing_accounts (id, user_id, credits, monthly_spend, currency)
-        SELECT $3, $2, amount, 0, 'USD' FROM claimed_voucher
+        INSERT INTO cloud_billing_accounts (id, user_id, credits, promotional_credits, promotional_expires_at, monthly_spend, currency)
+        SELECT $3, $2, 0, amount, CURRENT_TIMESTAMP + INTERVAL '365 days', 0, 'USD' FROM claimed_voucher
         ON CONFLICT (user_id) DO UPDATE SET
-          credits = COALESCE(cloud_billing_accounts.credits, 0) + EXCLUDED.credits,
+          promotional_credits = COALESCE(cloud_billing_accounts.promotional_credits, 0) + EXCLUDED.promotional_credits,
+          promotional_expires_at = GREATEST(
+            COALESCE(cloud_billing_accounts.promotional_expires_at, CURRENT_TIMESTAMP),
+            EXCLUDED.promotional_expires_at
+          ),
           updated_at = CURRENT_TIMESTAMP
-        RETURNING credits
+        RETURNING credits, promotional_credits, promotional_expires_at
       )
-      SELECT claimed_voucher.id, claimed_voucher.amount, updated_account.credits
+      SELECT claimed_voucher.id, claimed_voucher.amount,
+             updated_account.credits, updated_account.promotional_credits, updated_account.promotional_expires_at
       FROM claimed_voucher CROSS JOIN updated_account
     `, [code, userId, randomUUID()]);
 
@@ -776,8 +781,8 @@ export const BillingDB = {
     const addedCredits = Number(rows[0].amount);
     await recordPlatformBillingOrder({
       userId,
-      orderType: 'voucher_redeem',
-      itemName: `Voucher Credit (${code})`,
+      orderType: 'promo_grant',
+      itemName: `Promo Voucher (${code})`,
       grossAmountUsd: addedCredits,
       cashCreditUsedUsd: 0,
       promoCreditUsedUsd: 0,
@@ -785,13 +790,16 @@ export const BillingDB = {
       provider: 'voucher',
       currency: 'USD',
       status: 'paid',
-      metadata: { voucherId: rows[0].id, code }
+      metadata: { voucherId: rows[0].id, code, rewardType: 'promo_credit' }
     });
     return {
       success: true,
       voucherId: rows[0].id,
+      rewardType: 'promo_credit',
       addedCredits,
-      balance: Number(rows[0].credits)
+      balance: Number(rows[0].credits || 0),
+      promotionalBalance: Number(rows[0].promotional_credits || 0),
+      expiresAt: rows[0].promotional_expires_at ? new Date(rows[0].promotional_expires_at).toISOString() : null
     };
   },
 

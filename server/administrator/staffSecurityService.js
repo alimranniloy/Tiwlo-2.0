@@ -456,8 +456,17 @@ export function getStaffSecurityState(user, profile, clientIp = null) {
 export async function enforceStaffIpForLogin(user, req) {
   if (!user?.id) return { allowed: true, profile: null };
   const profile = await getStaffSecurityProfile(user.id);
-  if (!profile || profile.isActive === false) {
-    return { allowed: true, profile };
+  if (!profile) {
+    return { allowed: true, profile: null };
+  }
+  if (profile.isActive === false) {
+    return {
+      allowed: false,
+      statusCode: 403,
+      code: 'STAFF_PROFILE_INACTIVE',
+      error: 'Staff access has been deactivated for this account.',
+      profile
+    };
   }
   const clientIp = extractRequestClientIp(req);
   const check = checkStaffIpAccess(profile, clientIp);

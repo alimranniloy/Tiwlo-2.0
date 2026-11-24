@@ -580,8 +580,8 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, rewardType: e.target.value }))}
                   className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 >
-                  <option value="promo_credit">Expiring Trial Gift Credit</option>
-                  <option value="standard_credit">Permanent Cloud Credit</option>
+                  <option value="promo_credit">Promotional Credit Wallet (Separate from Cash)</option>
+                  <option value="standard_credit">Cash Wallet Credit (Counts as Deposited Cash)</option>
                 </select>
               </div>
               <div>

@@ -211,7 +211,7 @@ export function evaluateFreeStoreEligibility({
       reason: 'Suspended: Multiple accounts detected attempting to claim a free store from the same device or browser fingerprint.',
       shouldBanAccount: true,
       matchedUsers: [...new Set(hardwareMatched.map((c) => c.user_id))],
-      blockSignalTypes: ['user', 'fingerprint', 'device_token', 'browser_cookie', 'ip']
+      blockSignalTypes: ['user', 'fingerprint', 'device_token', 'browser_cookie']
     };
   }
 
@@ -236,7 +236,7 @@ export function evaluateFreeStoreEligibility({
       reason: 'Suspended: Multiple accounts detected attempting to abuse the Free plan on the same Wi-Fi/IP network and device.',
       shouldBanAccount: true,
       matchedUsers: [...new Set([...distinctSameIpUsers, ...distinctSameWifiUsers])],
-      blockSignalTypes: ['user', 'fingerprint', 'device_token', 'ip']
+      blockSignalTypes: ['user', 'fingerprint', 'device_token']
     };
   }
 
@@ -263,7 +263,7 @@ async function queryActiveBlocks(userId, signals) {
   if (signals.fingerprintHash) pairs.push(['fingerprint', signals.fingerprintHash]);
   if (signals.deviceTokenHash) pairs.push(['device_token', signals.deviceTokenHash]);
   if (signals.browserCookieHash) pairs.push(['browser_cookie', signals.browserCookieHash]);
-  if (signals.ipHash) pairs.push(['ip', signals.ipHash]);
+  // Shared network/Wi-Fi IPs are intentionally NOT permanently blacklisted so genuine users behind NAT aren't locked out.
 
   const validPairs = pairs.filter(([, hash]) => Boolean(hash));
   if (validPairs.length === 0) return [];
@@ -320,7 +320,7 @@ export async function activateBanAndBlockSignals({
   user = null,
   reason,
   signals = {},
-  blockSignalTypes = ['user', 'fingerprint', 'device_token', 'browser_cookie', 'ip'],
+  blockSignalTypes = ['user', 'fingerprint', 'device_token', 'browser_cookie'],
   banAccount = true
 }) {
   if (!isPgActive()) return;
@@ -330,11 +330,12 @@ export async function activateBanAndBlockSignals({
     user: userId ? hashAbuseSignal('user', String(userId)) : null,
     fingerprint: signals.fingerprintHash,
     device_token: signals.deviceTokenHash,
-    browser_cookie: signals.browserCookieHash,
-    ip: signals.ipHash
+    browser_cookie: signals.browserCookieHash
   };
 
   for (const signalType of blockSignalTypes) {
+    // Shared network/Wi-Fi IPs & subnets are never permanently blacklisted so legitimate NAT users aren't locked out.
+    if (signalType === 'ip' || signalType === 'subnet') continue;
     const signalHash = signalMap[signalType];
     if (!signalHash) continue;
     await queryPg(
@@ -394,7 +395,7 @@ export async function activateBanAndBlockSignals({
   }
 }
 
-/** Unblock user and device/IP signals when an administrator restores an account. */
+/** Unblock user and device signals when an administrator restores an account. */
 export async function unblockUserAndSignals(userId) {
   if (!isPgActive() || !userId) return;
   const uid = String(userId).slice(0, 64);
@@ -416,6 +417,25 @@ export async function unblockUserAndSignals(userId) {
        updated_at = CURRENT_TIMESTAMP`,
     [uid]
   );
+}
+
+/**
+ * Cancels all legacy IP/subnet blacklist entries in system_blocked_identities so
+ * innocent shared-Wi-Fi / NAT users are never locked out by an attacker's IP.
+ */
+export async function deactivateAllIpBlockSignals() {
+  if (!isPgActive()) return 0;
+  try {
+    const res = await queryPg(
+      `UPDATE system_blocked_identities
+       SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+       WHERE is_active = TRUE AND signal_type IN ('ip', 'subnet')`
+    );
+    return Number(res?.rowCount) || 0;
+  } catch (err) {
+    console.warn('[FreeTierAbuseGuard] Failed to deactivate legacy IP blocks:', err?.message || err);
+    return 0;
+  }
 }
 
 /**

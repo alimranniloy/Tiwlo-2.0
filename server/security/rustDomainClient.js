@@ -193,17 +193,6 @@ export async function checkSubdomainWithRust(name) {
 }
 
 export async function claimDomainWithRust({ user, name, request }) {
-  const rustResult = await requestRust({
-    path: '/v1/domains/claim',
-    method: 'POST',
-    user,
-    request,
-    body: { name }
-  });
-  if (rustResult !== undefined) {
-    return { ...rustResult, status: 'active' };
-  }
-
   if (!user?.id) {
     throw domainError('Authentication required.', 401);
   }
@@ -212,6 +201,17 @@ export async function claimDomainWithRust({ user, name, request }) {
   const fullDomain = `${label}.${PLATFORM_CONFIG.freeSubdomainDomain}`;
   if (RESERVED_FREE_SUBDOMAINS.has(label)) {
     throw domainError(`${fullDomain} is reserved for platform services.`, 409, { code: 'SUBDOMAIN_RESERVED' });
+  }
+
+  const rustResult = await requestRust({
+    path: '/v1/domains/claim',
+    method: 'POST',
+    user,
+    request,
+    body: { name: label }
+  });
+  if (rustResult !== undefined) {
+    return { ...rustResult, status: 'active' };
   }
 
   const pool = getPgPool();

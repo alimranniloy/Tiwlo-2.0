@@ -5,24 +5,31 @@ import http from 'node:http';
 import express from 'express';
 import {
   PANEL_BLUEPRINTS,
+  PRIMARY_NODE_ID,
   assertSafeProbeHostResolution,
   bulkImportServerNodes,
   createServerNode,
   decryptServerCredentials,
   deleteServerNode,
+  detectLocalHostHardware,
   encryptServerCredentials,
+  ensurePrimaryLocalServerNode,
   ensureServerFleetSchema,
+  getClusterAutomationSettings,
   getFleetLiveStatus,
   getNodeConnectivityLogs,
   getPublicDropletCatalogAdditions,
   getServerNodeById,
   isBlockedMetadataOrSsrfIp,
+  linkRemoteUbuntuNodeViaSsh,
   listServerNodes,
   probeFleetBatch,
   probeServerConnectivity,
   resetInMemoryServerFleetForTests,
   runFleetMonitorSweep,
   runHttpHealthProbe,
+  selectBestClusterNodeForDroplet,
+  setClusterAutomationSettings,
   startFleetConnectivityMonitor,
   stopFleetConnectivityMonitor,
   updateServerNode
@@ -335,10 +342,10 @@ test('probeServerConnectivity updates status, latency, and writes audit logs for
   assert.equal(updated.hasCredentials, true); // preserved when not overwritten
 
   const logs = await getNodeConnectivityLogs(node.id, 20);
-  assert.equal(logs.length, 5);
+  assert.equal(logs.length, 6);
   assert.deepEqual(
     logs.map((l) => l.eventType),
-    ['maintenance_toggle', 'probe', 'probe', 'probe', 'created']
+    ['maintenance_toggle', 'probe', 'failover_triggered', 'probe', 'probe', 'created']
   );
   assert.equal(logs[1].errorMessage, 'ETIMEDOUT connecting to 10.70.1.5:2087');
 });
@@ -684,4 +691,466 @@ test('runHttpHealthProbe blocks DNS rebinding to metadata IPs and enforces redir
     () => assertSafeProbeHostResolution('rebind.example', async () => [{ address: '169.254.169.254', family: 4 }]),
     (err) => err.statusCode === 400
   );
+});
+
+test('detectLocalHostHardware returns valid host telemetry and ensurePrimaryLocalServerNode protects primary node with 403', async () => {
+  const hw = detectLocalHostHardware();
+  assert.equal(typeof hw.cpuCores, 'number');
+  assert.ok(hw.cpuCores >= 1);
+  assert.equal(typeof hw.ramGb, 'number');
+  assert.ok(hw.ramGb >= 1);
+  assert.equal(typeof hw.storageGb, 'number');
+  assert.ok(hw.storageGb >= 1);
+  assert.equal(typeof hw.detectedOsId, 'string');
+  assert.ok(hw.detectedOsId.length > 0);
+  assert.ok(hw.networkAddresses && Array.isArray(hw.networkAddresses.ipv4));
+  assert.ok(Array.isArray(hw.networkAddresses.ipv6));
+  assert.ok(hw.networkAddresses.ipv4.length >= 1);
+  assert.equal(typeof hw.timezone, 'string');
+  assert.ok(hw.timezone.length > 0);
+
+  const primary = await ensurePrimaryLocalServerNode();
+  assert.equal(primary.id, PRIMARY_NODE_ID);
+  assert.equal(primary.id, 'primary-ubuntu-node');
+  assert.equal(primary.isPrimary, true);
+  assert.equal(primary.status, 'online');
+  assert.equal(primary.cpuCores, hw.cpuCores);
+  assert.equal(primary.ramGb, hw.ramGb);
+  assert.equal(primary.storageGb, hw.storageGb);
+  assert.equal(primary.detectedOsId, hw.detectedOsId);
+
+  // Calling ensurePrimaryLocalServerNode again updates idempotently without duplicating
+  const primaryAgain = await ensurePrimaryLocalServerNode();
+  assert.equal(primaryAgain.id, 'primary-ubuntu-node');
+  const listed = await listServerNodes();
+  assert.equal(listed.summary.total, 1);
+
+  await assert.rejects(
+    () => deleteServerNode('primary-ubuntu-node', 'admin_1'),
+    (err) => err.statusCode === 403
+  );
+});
+
+test('listServerNodes / summarizeNodesList accurately aggregates cluster CPU, RAM, storage, OS images, and IPv4/IPv6 pools', async () => {
+  await createServerNode({
+    name: 'Pool Node Online 1',
+    hostname: 'pool-1.tiwlo.net',
+    ipAddress: '10.30.1.10',
+    ipv6Address: '2001:db8:1::10',
+    panelType: 'ubuntu_node',
+    serverRole: 'app_hosting',
+    region: 'sgp1',
+    status: 'online',
+    cpuCores: 16,
+    ramGb: 64,
+    storageGb: 1000,
+    capabilities: {
+      storageFreeGb: 750.5,
+      detectedOsId: 'ubuntu-24.04',
+      osImages: ['ubuntu-24.04', 'debian-12'],
+      networkAddresses: {
+        ipv4: ['10.30.1.10', '10.30.1.11'],
+        ipv6: ['2001:db8:1::10', '2001:db8:1::11']
+      }
+    }
+  }, 'admin_1');
+
+  await createServerNode({
+    name: 'Pool Node Degraded 2',
+    hostname: 'pool-2.tiwlo.net',
+    ipAddress: '10.30.2.20',
+    ipv6Address: '2001:db8:2::20',
+    panelType: 'ubuntu_node',
+    serverRole: 'droplet_host',
+    region: 'fra1',
+    status: 'degraded',
+    cpuCores: 8,
+    ramGb: 32,
+    storageGb: 500,
+    capabilities: {
+      storageFreeGb: 200.5,
+      detectedOsId: 'ubuntu-22.04',
+      osImages: ['ubuntu-22.04', 'ubuntu-24.04'],
+      networkAddresses: {
+        ipv4: ['10.30.2.20'],
+        ipv6: ['2001:db8:2::20']
+      }
+    }
+  }, 'admin_1');
+
+  await createServerNode({
+    name: 'Pool Node Offline 3',
+    hostname: 'pool-3.tiwlo.net',
+    ipAddress: '10.30.3.30',
+    ipv6Address: '2001:db8:3::30',
+    panelType: 'kvm_hypervisor',
+    serverRole: 'droplet_host',
+    region: 'nyc3',
+    status: 'offline',
+    cpuCores: 32,
+    ramGb: 128,
+    storageGb: 2000,
+    capabilities: {
+      storageFreeGb: 1500,
+      detectedOsId: 'rocky-9',
+      osImages: ['rocky-9'],
+      networkAddresses: {
+        ipv4: ['10.30.3.30', '10.30.1.10'], // includes shared/duplicate IPv4 to test deduplication
+        ipv6: ['2001:db8:3::30']
+      }
+    }
+  }, 'admin_1');
+
+  const { summary } = await listServerNodes();
+  assert.equal(summary.total, 3);
+  assert.equal(summary.online, 1);
+  assert.equal(summary.degraded, 1);
+  assert.equal(summary.offline, 1);
+
+  assert.equal(summary.totalCpuCores, 56);
+  assert.equal(summary.onlineCpuCores, 24); // online (16) + degraded (8)
+  assert.equal(summary.totalRamGb, 224);
+  assert.equal(summary.onlineRamGb, 96); // online (64) + degraded (32)
+  assert.equal(summary.totalStorageGb, 3500);
+  assert.equal(summary.onlineStorageGb, 1500);
+  assert.equal(summary.totalStorageFreeGb, 2451); // 750.5 + 200.5 + 1500
+  assert.equal(summary.totalStorageUsedGb, 1049); // 3500 - 2451
+
+  // Only online/degraded nodes contribute detectedOsImages and onlineRegions
+  assert.deepEqual(
+    summary.detectedOsImages.slice().sort(),
+    ['debian-12', 'ubuntu-22.04', 'ubuntu-24.04']
+  );
+  assert.deepEqual(summary.onlineRegions.slice().sort(), ['fra1', 'sgp1']);
+
+  // All unique IPv4 and IPv6 addresses across the fleet
+  assert.deepEqual(
+    summary.allIpv4.slice().sort(),
+    ['10.30.1.10', '10.30.1.11', '10.30.2.20', '10.30.3.30']
+  );
+  assert.deepEqual(
+    summary.allIpv6.slice().sort(),
+    ['2001:db8:1::10', '2001:db8:1::11', '2001:db8:2::20', '2001:db8:3::30']
+  );
+});
+
+test('selectBestClusterNodeForDroplet enforces weighted load balancing and overflows when maxDroplets or storageFreeGb is exhausted', async () => {
+  const fullByDroplets = await createServerNode({
+    name: 'Node A Full Slots',
+    hostname: 'node-a.tiwlo.net',
+    ipAddress: '10.40.1.1',
+    panelType: 'ubuntu_node',
+    serverRole: 'app_hosting',
+    region: 'sgp1',
+    status: 'online',
+    maxDroplets: 10,
+    activeDroplets: 10,
+    routingWeight: 500,
+    storageGb: 1000,
+    capabilities: { storageFreeGb: 800, ramFreeGb: 64, detectedOsId: 'ubuntu-24.04' }
+  }, 'admin_1');
+
+  const lowStorageNode = await createServerNode({
+    name: 'Node B Low Disk',
+    hostname: 'node-b.tiwlo.net',
+    ipAddress: '10.40.1.2',
+    panelType: 'ubuntu_node',
+    serverRole: 'app_hosting',
+    region: 'sgp1',
+    status: 'online',
+    maxDroplets: 50,
+    activeDroplets: 2,
+    routingWeight: 300,
+    storageGb: 500,
+    capabilities: { storageFreeGb: 20, ramFreeGb: 32, detectedOsId: 'ubuntu-24.04' }
+  }, 'admin_1');
+
+  const healthyOverflow = await createServerNode({
+    name: 'Node C Healthy Overflow',
+    hostname: 'node-c.tiwlo.net',
+    ipAddress: '10.40.1.3',
+    panelType: 'ubuntu_node',
+    serverRole: 'app_hosting',
+    region: 'sgp1',
+    status: 'online',
+    maxDroplets: 50,
+    activeDroplets: 5,
+    routingWeight: 100,
+    storageGb: 1000,
+    capabilities: { storageFreeGb: 250, ramFreeGb: 32, detectedOsId: 'ubuntu-24.04' }
+  }, 'admin_1');
+
+  // Node A is at maxDroplets; Node B lacks requiredStorageGb (20 < 80); overflows onto Node C
+  const selectedForLargeDisk = await selectBestClusterNodeForDroplet({
+    requiredStorageGb: 80,
+    requiredRamGb: 8,
+    regionId: 'sgp1',
+    imageId: 'ubuntu-24.04'
+  });
+  assert.ok(selectedForLargeDisk);
+  assert.equal(selectedForLargeDisk.id, healthyOverflow.id);
+  assert.notEqual(selectedForLargeDisk.id, fullByDroplets.id);
+  assert.notEqual(selectedForLargeDisk.id, lowStorageNode.id);
+
+  // When requiredStorageGb fits on Node B (10 <= 20), higher weighted Node B wins over Node C
+  const selectedForSmallDisk = await selectBestClusterNodeForDroplet({
+    requiredStorageGb: 10,
+    regionId: 'sgp1'
+  });
+  assert.equal(selectedForSmallDisk.id, lowStorageNode.id);
+
+  // Excluding Node C when 80GB is required yields null (no eligible node)
+  const noneEligible = await selectBestClusterNodeForDroplet({
+    requiredStorageGb: 80,
+    excludeNodeIds: [healthyOverflow.id]
+  });
+  assert.equal(noneEligible, null);
+});
+
+test('autonomous self-healing and auto-failover trigger alerts/logs on outage and clear them on recovery', async () => {
+  const nodePrimary = await createServerNode({
+    name: 'Cluster Worker A',
+    hostname: 'worker-a.tiwlo.net',
+    ipAddress: '10.45.0.10',
+    panelType: 'ubuntu_node',
+    serverRole: 'app_hosting',
+    region: 'sgp1',
+    status: 'online',
+    maxDroplets: 50,
+    activeDroplets: 5
+  }, 'admin_1');
+
+  const nodeStandby = await createServerNode({
+    name: 'Cluster Worker B',
+    hostname: 'worker-b.tiwlo.net',
+    ipAddress: '10.45.0.11',
+    panelType: 'ubuntu_node',
+    serverRole: 'app_hosting',
+    region: 'sgp1',
+    status: 'online',
+    maxDroplets: 50,
+    activeDroplets: 1
+  }, 'admin_1');
+
+  // Step 1: Worker A goes offline during monitor sweep -> auto-failover + active alert
+  const outageSweep = await runFleetMonitorSweep({
+    batchLimit: 10,
+    probeFn: async (node) => (node.id === nodePrimary.id
+      ? { ok: false, latencyMs: 3500, error: 'Agent heartbeat timeout' }
+      : { ok: true, latencyMs: 14 })
+  });
+  assert.equal(outageSweep.probedCount, 2);
+  assert.equal(outageSweep.offlineCount, 1);
+  assert.equal(outageSweep.onlineCount, 1);
+
+  const liveAfterOutage = await getFleetLiveStatus();
+  assert.equal(liveAfterOutage.automation.autoFailoverCount, 1);
+  assert.equal(liveAfterOutage.automation.selfHealedCount, 0);
+  assert.ok(liveAfterOutage.automation.lastFailoverAt);
+  assert.equal(liveAfterOutage.automation.activeAlerts.length, 1);
+  assert.equal(liveAfterOutage.automation.activeAlerts[0].nodeId, nodePrimary.id);
+  assert.equal(liveAfterOutage.automation.activeAlerts[0].type, 'node_offline');
+  assert.equal(liveAfterOutage.automation.activeAlerts[0].failoverTargetId, nodeStandby.id);
+
+  const logsAfterOutage = await getNodeConnectivityLogs(nodePrimary.id, 20);
+  const failoverLog = logsAfterOutage.find((l) => l.eventType === 'failover_triggered');
+  assert.ok(failoverLog);
+  assert.equal(failoverLog.status, 'offline');
+  assert.equal(failoverLog.details.failoverTargetId, nodeStandby.id);
+
+  // Step 2: Recover Worker A -> online via probeServerConnectivity -> self_healed + alert cleared
+  const recovery = await probeServerConnectivity(nodePrimary.id, 'system:self_healing', {
+    probeFn: async () => ({ ok: true, latencyMs: 19 })
+  });
+  assert.equal(recovery.node.status, 'online');
+
+  const liveAfterRecovery = await getFleetLiveStatus();
+  assert.equal(liveAfterRecovery.automation.autoFailoverCount, 1);
+  assert.equal(liveAfterRecovery.automation.selfHealedCount, 1);
+  assert.ok(liveAfterRecovery.automation.lastHealedAt);
+  assert.equal(liveAfterRecovery.automation.activeAlerts.length, 0);
+
+  const logsAfterRecovery = await getNodeConnectivityLogs(nodePrimary.id, 20);
+  const healedLog = logsAfterRecovery.find((l) => l.eventType === 'self_healed');
+  assert.ok(healedLog);
+  assert.equal(healedLog.status, 'online');
+  assert.equal(healedLog.details.previousStatus, 'offline');
+});
+
+test('runHttpHealthProbe sends bearer Authorization header and parses JSON telemetry into node state', async () => {
+  const node = await createServerNode({
+    name: 'Telemetry Agent Node',
+    hostname: 'agent-telemetry.tiwlo.net',
+    ipAddress: '10.55.0.10',
+    panelType: 'ubuntu_node',
+    serverRole: 'app_hosting',
+    panelUrl: 'https://agent-telemetry.tiwlo.net:9443',
+    healthEndpoint: '/agent/v1/health',
+    bearerToken: 'agent_secret_bearer_token_9988',
+    cpuCores: 2,
+    ramGb: 4,
+    storageGb: 50
+  }, 'admin_1');
+
+  const seenHeaders = [];
+  const telemetryPayload = {
+    cpuCores: 16,
+    ramGb: 64,
+    ramFreeGb: 48.2,
+    storageGb: 1000,
+    storageFreeGb: 812.5,
+    detectedOsId: 'ubuntu-24.04',
+    detectedOsName: 'Ubuntu 24.04.1 LTS',
+    networkAddresses: {
+      ipv4: ['10.55.0.10', '192.168.55.10'],
+      ipv6: ['2001:db8:55::10']
+    },
+    timezone: 'Asia/Dhaka',
+    loadPct: 14
+  };
+
+  const mockDnsLookup = async () => [{ address: '10.55.0.10', family: 4 }];
+  const mockFetchFn = async (_url, init) => {
+    seenHeaders.push(init.headers);
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(telemetryPayload)
+    };
+  };
+
+  const directProbe = await runHttpHealthProbe(
+    {
+      ip_address: '10.55.0.10',
+      hostname: 'agent-telemetry.tiwlo.net',
+      panel_url: 'https://agent-telemetry.tiwlo.net:9443',
+      health_endpoint: '/agent/v1/health',
+      credentials_ciphertext: encryptServerCredentials({ bearerToken: 'direct_bearer_xyz_1234' })
+    },
+    2000,
+    { dnsLookup: mockDnsLookup, fetchFn: mockFetchFn }
+  );
+
+  assert.equal(directProbe.ok, true);
+  assert.equal(directProbe.status, 'online');
+  assert.equal(seenHeaders[0].Authorization, 'Bearer direct_bearer_xyz_1234');
+  assert.deepEqual(directProbe.details.telemetry, telemetryPayload);
+
+  // Also verify probeServerConnectivity applies parsed telemetry + bearer header for stored node
+  const probeRes = await probeServerConnectivity(node.id, 'admin_probe', {
+    dnsLookup: mockDnsLookup,
+    fetchFn: mockFetchFn
+  });
+  assert.equal(seenHeaders[1].Authorization, 'Bearer agent_secret_bearer_token_9988');
+  assert.equal(probeRes.node.status, 'online');
+  assert.equal(probeRes.node.cpuCores, 16);
+  assert.equal(probeRes.node.ramGb, 64);
+  assert.equal(probeRes.node.ramFreeGb, 48.2);
+  assert.equal(probeRes.node.storageGb, 1000);
+  assert.equal(probeRes.node.storageFreeGb, 812.5);
+  assert.equal(probeRes.node.detectedOsId, 'ubuntu-24.04');
+  assert.equal(probeRes.node.ipv6Address, '2001:db8:55::10');
+  assert.equal(probeRes.node.timezone, 'Asia/Dhaka');
+  assert.equal(probeRes.node.loadPct, 14);
+});
+
+test('linkRemoteUbuntuNodeViaSsh registers online Ubuntu node with parsed SSH telemetry and masks credentials', async () => {
+  await assert.rejects(
+    () => linkRemoteUbuntuNodeViaSsh({ ipAddress: '10.65.0.10' }, 'admin_1'),
+    (err) => err.statusCode === 400
+  );
+
+  await assert.rejects(
+    () => linkRemoteUbuntuNodeViaSsh({
+      ipAddress: '169.254.169.254',
+      sshPassword: 'secret-pass'
+    }, 'admin_1'),
+    (err) => err.statusCode === 400
+  );
+
+  const capturedArgs = [];
+  const probeOutput = [
+    'HOSTNAME=ubuntu-worker-bd01.tiwlo.net',
+    'CPU_CORES=12',
+    'RAM_MB=49152',
+    'RAM_FREE_MB=36864',
+    'DISK_TOTAL_GB=800',
+    'DISK_FREE_GB=645.5',
+    'OS_ID=ubuntu',
+    'OS_VER=24.04',
+    'OS_PRETTY=Ubuntu 24.04 LTS',
+    'TIMEZONE=Asia/Dhaka',
+    'IPV4_LIST=10.65.0.25,169.254.169.254',
+    'IPV6_LIST=2001:db8:65::25,fe80::1'
+  ].join('\n');
+
+  const linked = await linkRemoteUbuntuNodeViaSsh(
+    {
+      name: 'BD Auto-Linked Node 01',
+      ipAddress: '10.65.0.25',
+      sshPort: 2222,
+      sshUser: 'ubuntu',
+      sshPassword: 'super_secret_ssh_password_55',
+      region: 'bd1'
+    },
+    'admin_ssh',
+    {
+      sshConnectFn: async (opts) => {
+        capturedArgs.push(opts);
+        return {
+          probeOutput,
+          agentToken: 'ssh_installed_agent_token_8877',
+          installResult: 'systemd_agent_active'
+        };
+      }
+    }
+  );
+
+  assert.equal(capturedArgs.length, 1);
+  assert.equal(capturedArgs[0].host, '10.65.0.25');
+  assert.equal(capturedArgs[0].port, 2222);
+  assert.equal(capturedArgs[0].username, 'ubuntu');
+  assert.equal(capturedArgs[0].installAgent, true);
+
+  assert.equal(linked.installResult, 'systemd_agent_active');
+  assert.equal(linked.node.status, 'online');
+  assert.equal(linked.node.panelType, 'ubuntu_node');
+  assert.equal(linked.node.hostname, 'ubuntu-worker-bd01.tiwlo.net');
+  assert.equal(linked.node.cpuCores, 12);
+  assert.equal(linked.node.ramGb, 48);
+  assert.equal(linked.node.ramFreeGb, 36);
+  assert.equal(linked.node.storageGb, 800);
+  assert.equal(linked.node.storageFreeGb, 645.5);
+  assert.equal(linked.node.detectedOsId, 'ubuntu-24.04');
+  assert.equal(linked.node.timezone, 'Asia/Dhaka');
+  // Link-local/metadata IPs filtered out of parsed network addresses
+  assert.deepEqual(linked.node.networkAddresses.ipv4, ['10.65.0.25']);
+  assert.deepEqual(linked.node.networkAddresses.ipv6, ['2001:db8:65::25']);
+  assert.equal(linked.node.hasCredentials, true);
+
+  const serialized = JSON.stringify(linked.node);
+  assert.ok(!serialized.includes('super_secret_ssh_password_55'));
+  assert.ok(!serialized.includes('ssh_installed_agent_token_8877'));
+
+  const fetched = await getServerNodeById(linked.node.id);
+  assert.equal(fetched.id, linked.node.id);
+  assert.equal(fetched.status, 'online');
+});
+
+test('getClusterAutomationSettings and setClusterAutomationSettings default backupEnabled to false and toggle cleanly', async () => {
+  const initial = await getClusterAutomationSettings();
+  assert.equal(initial.backupEnabled, false);
+  assert.equal(initial.loadBalancingPolicy, 'weighted_least_load_overflow');
+  assert.equal(initial.selfHealingEnabled, true);
+  assert.equal(initial.autoFailoverEnabled, true);
+
+  const enabled = await setClusterAutomationSettings({ backupEnabled: true }, 'admin_1');
+  assert.equal(enabled.backupEnabled, true);
+  assert.equal((await getClusterAutomationSettings()).backupEnabled, true);
+  assert.equal((await getFleetLiveStatus()).automation.backupEnabled, true);
+
+  const disabled = await setClusterAutomationSettings({ backupEnabled: false }, 'admin_1');
+  assert.equal(disabled.backupEnabled, false);
+  assert.equal((await getClusterAutomationSettings()).backupEnabled, false);
+  assert.equal((await getFleetLiveStatus()).automation.backupEnabled, false);
 });

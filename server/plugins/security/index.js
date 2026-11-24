@@ -5,6 +5,21 @@ import { queryPg } from '../../db/postgres.js';
 import { hashSecuritySubject, recordSecurityEvent } from '../../db/securityPersistence.js';
 
 let requestsSinceCleanup = 0;
+const memoryRateLimits = new Map();
+
+function incrementInMemoryLimit(policyId, identity, windowMs) {
+  const now = Date.now();
+  const key = `${policyId}:${identity}`;
+  const existing = memoryRateLimits.get(key);
+  if (!existing || existing.expiresAt <= now) {
+    const entry = { hitCount: 1, expiresAt: now + windowMs };
+    if (memoryRateLimits.size >= 10000) memoryRateLimits.clear();
+    memoryRateLimits.set(key, entry);
+    return { hitCount: entry.hitCount, expiresAt: new Date(entry.expiresAt).toISOString() };
+  }
+  existing.hitCount += 1;
+  return { hitCount: existing.hitCount, expiresAt: new Date(existing.expiresAt).toISOString() };
+}
 
 function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || '127.0.0.1';
@@ -20,38 +35,48 @@ function requestKey(policyId, identity) {
 
 async function incrementLimit(policyId, identity, windowMs) {
   const keyHash = requestKey(policyId, identity);
-  const { rows } = await queryPg(
-    `INSERT INTO system_security_rate_limits
-       (policy_id, key_hash, hit_count, window_started_at, expires_at, updated_at)
-     VALUES ($1, $2, 1, CURRENT_TIMESTAMP,
-       CURRENT_TIMESTAMP + ($3 * INTERVAL '1 millisecond'), CURRENT_TIMESTAMP)
-     ON CONFLICT (policy_id, key_hash) DO UPDATE SET
-       hit_count = CASE
-         WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP THEN 1
-         ELSE LEAST(system_security_rate_limits.hit_count + 1, 2147483647)
-       END,
-       window_started_at = CASE
-         WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP THEN CURRENT_TIMESTAMP
-         ELSE system_security_rate_limits.window_started_at
-       END,
-       expires_at = CASE
-         WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP
-           THEN CURRENT_TIMESTAMP + ($3 * INTERVAL '1 millisecond')
-         ELSE system_security_rate_limits.expires_at
-       END,
-       updated_at = CURRENT_TIMESTAMP
-     RETURNING hit_count AS "hitCount", expires_at AS "expiresAt"`,
-    [policyId, keyHash, windowMs]
-  );
-  requestsSinceCleanup += 1;
-  if (requestsSinceCleanup >= 1000) {
-    requestsSinceCleanup = 0;
-    queryPg('DELETE FROM system_security_rate_limits WHERE expires_at <= CURRENT_TIMESTAMP')
-      .catch((error) => {
-        console.error('[SecurityPlugin] Could not prune expired rate-limit records:', error.message);
-      });
+  try {
+    const { rows } = await queryPg(
+      `INSERT INTO system_security_rate_limits
+         (policy_id, key_hash, hit_count, window_started_at, expires_at, updated_at)
+       VALUES ($1, $2, 1, CURRENT_TIMESTAMP,
+         CURRENT_TIMESTAMP + ($3 * INTERVAL '1 millisecond'), CURRENT_TIMESTAMP)
+       ON CONFLICT (policy_id, key_hash) DO UPDATE SET
+         hit_count = CASE
+           WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP THEN 1
+           ELSE LEAST(system_security_rate_limits.hit_count + 1, 2147483647)
+         END,
+         window_started_at = CASE
+           WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP THEN CURRENT_TIMESTAMP
+           ELSE system_security_rate_limits.window_started_at
+         END,
+         expires_at = CASE
+           WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP
+             THEN CURRENT_TIMESTAMP + ($3 * INTERVAL '1 millisecond')
+           ELSE system_security_rate_limits.expires_at
+         END,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING hit_count AS "hitCount", expires_at AS "expiresAt"`,
+      [policyId, keyHash, windowMs]
+    );
+    requestsSinceCleanup += 1;
+    if (requestsSinceCleanup >= 1000) {
+      requestsSinceCleanup = 0;
+      queryPg('DELETE FROM system_security_rate_limits WHERE expires_at <= CURRENT_TIMESTAMP')
+        .catch((error) => {
+          console.error('[SecurityPlugin] Could not prune expired rate-limit records:', error.message);
+        });
+    }
+    return rows[0];
+  } catch (err) {
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      (err?.code === '3D000' || err?.code === 'ECONNREFUSED' || err?.code === 'ENOTFOUND' || /not initialized|terminated|does not exist/i.test(String(err?.message || '')))
+    ) {
+      return incrementInMemoryLimit(policyId, identity, windowMs);
+    }
+    throw err;
   }
-  return rows[0];
 }
 
 function logExceededLimit(policyId, req, identity) {
@@ -261,6 +286,13 @@ export const securityLimiters = {
     limit: 50,
     getIdentity: (req) => req.activeUser?.id ? `user:${req.activeUser.id}` : getClientNetwork(req),
     error: 'This account has reached its daily sending limit. Try again tomorrow.'
+  }),
+  supportAiChat: createLimiter({
+    policyId: 'support_ai_chat_15m',
+    windowMs: 15 * 60 * 1000,
+    limit: 60,
+    getIdentity: (req) => req.activeUser?.id ? `user:${req.activeUser.id}` : getClientNetwork(req),
+    error: 'Too many support chat requests in a short window. Please wait a moment.'
   })
 };
 

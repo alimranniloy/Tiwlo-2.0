@@ -1596,12 +1596,12 @@ export function createAdminPlatformOpsRouter({
       }
 
       const creditType = String(req.body?.creditType || 'promo').trim().toLowerCase();
-      if (!['cash', 'promo'].includes(creditType)) {
-        return res.status(400).json({ error: 'creditType must be "cash" or "promo".' });
+      if (!['cash', 'promo', 'reclassify_to_promo'].includes(creditType)) {
+        return res.status(400).json({ error: 'creditType must be "cash", "promo", or "reclassify_to_promo".' });
       }
       const operation = String(req.body?.operation || 'add').trim().toLowerCase();
-      if (!['add', 'deduct', 'set'].includes(operation)) {
-        return res.status(400).json({ error: 'operation must be "add", "deduct", or "set".' });
+      if (!['add', 'deduct', 'set', 'move_cash_to_promo'].includes(operation)) {
+        return res.status(400).json({ error: 'operation must be "add", "deduct", "set", or "move_cash_to_promo".' });
       }
 
       const rawAmount = Number(req.body?.amountUsd ?? req.body?.amount);
@@ -1623,7 +1623,21 @@ export function createAdminPlatformOpsRouter({
       );
 
       let updatedRow;
-      if (creditType === 'cash') {
+      if (operation === 'move_cash_to_promo' || creditType === 'reclassify_to_promo') {
+        const moveAmount = roundUsd(Math.abs(rawAmount));
+        const expiresAt = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString();
+        const { rows } = await d.queryPg(
+          `UPDATE cloud_billing_accounts
+           SET credits = GREATEST(0, COALESCE(credits, 0) - LEAST(COALESCE(credits, 0), $2::numeric)),
+               promotional_credits = COALESCE(promotional_credits, 0) + LEAST(COALESCE(credits, 0), $2::numeric),
+               promotional_expires_at = COALESCE(promotional_expires_at, $3::timestamptz),
+               updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = $1
+           RETURNING credits, promotional_credits, promotional_expires_at`,
+          [targetUser.id, moveAmount, expiresAt]
+        );
+        updatedRow = rows[0];
+      } else if (creditType === 'cash') {
         const sql =
           operation === 'set'
             ? `UPDATE cloud_billing_accounts

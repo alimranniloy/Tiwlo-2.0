@@ -23,6 +23,12 @@ export const schema = buildSchema(`
     regionFlag: String
     status: String!
     image: String
+    accessUsername: String
+    sshPort: Int
+    sshCommand: String
+    tenantId: String
+    nodeId: String
+    tags: String
     created: String!
     createdAt: String
   }
@@ -62,6 +68,9 @@ export const schema = buildSchema(`
     os: String!
     version: String
     icon: String
+    iconUrl: String
+    available: Boolean
+    featured: Boolean
   }
 
   type CloudDashboardData {
@@ -861,6 +870,21 @@ export function createGraphQLMiddleware() {
 
       const { document, errors } = prepareGraphQLQuery(schema, queryString);
       if (errors) return res.status(400).json({ errors: errors.map(error => ({ message: error.message })) });
+
+      let rootFields = 0;
+      for (const definition of document.definitions) {
+        if (definition.kind === 'FragmentDefinition') {
+          return res.status(400).json({ errors: [{ message: 'Send a single root operation without fragments.' }] });
+        }
+        if (definition.kind === 'OperationDefinition' && definition.selectionSet?.selections) {
+          for (const selection of definition.selectionSet.selections) {
+            if (selection.kind === 'Field') rootFields += 1;
+          }
+        }
+      }
+      if (rootFields !== 1) {
+        return res.status(400).json({ errors: [{ message: 'Send exactly one GraphQL operation per request.' }] });
+      }
 
       const result = await execute({
         schema,

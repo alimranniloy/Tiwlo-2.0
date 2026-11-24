@@ -3547,6 +3547,8 @@ export function createTicketingService(deps = {}) {
     }
 
     let userSummary = null;
+    let walletSummary = { credits: 0, promotionalCredits: 0, promotionalExpiresAt: null };
+    let storesList = [];
     let orders = [];
     let invoices = [];
     let activeServices = [];
@@ -3565,35 +3567,67 @@ export function createTicketingService(deps = {}) {
       };
 
       const uRows = await safeQuery(
-        `SELECT id, tiwi_id, name, email, phone, status, plan, created_at FROM system_users WHERE id = $1 LIMIT 1`,
+        `SELECT id, tiwi_id, name, store_name, email, phone, is_banned, plan_id, plan_name, created_at FROM system_users WHERE id = $1 LIMIT 1`,
         [targetUserId]
       );
       if (uRows[0]) {
         userSummary = {
           id: uRows[0].id,
           tiwiId: uRows[0].tiwi_id,
-          name: uRows[0].name,
+          name: uRows[0].name || uRows[0].store_name,
           email: uRows[0].email,
           phone: uRows[0].phone || null,
-          status: uRows[0].status || 'active',
-          plan: uRows[0].plan || 'free',
+          status: uRows[0].is_banned ? 'suspended' : 'active',
+          plan: uRows[0].plan_id || 'free',
+          planName: uRows[0].plan_name || uRows[0].plan_id || 'Free',
           createdAt: uRows[0].created_at
         };
       }
 
-      const storeRows = await safeQuery(
-        `SELECT id, name, slug, status, plan, custom_domain, created_at, updated_at
-         FROM stores WHERE owner_id = $1 OR user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      const billingAcctRows = await safeQuery(
+        `SELECT credits, promotional_credits, promotional_expires_at
+         FROM cloud_billing_accounts WHERE user_id = $1 LIMIT 1`,
         [targetUserId]
       );
-      for (const st of storeRows) {
+      if (billingAcctRows[0]) {
+        const b = billingAcctRows[0];
+        const rawCash = Number(b.credits || 0);
+        const rawPromo = Number(b.promotional_credits || 0);
+        const expMs = b.promotional_expires_at ? Date.parse(String(b.promotional_expires_at)) : NaN;
+        const promoExpired = Number.isFinite(expMs) && expMs <= Date.now();
+        walletSummary = {
+          credits: Number.isFinite(rawCash) && rawCash >= 0 ? Math.round(rawCash * 100) / 100 : 0,
+          promotionalCredits: Number.isFinite(rawPromo) && rawPromo > 0 && !promoExpired
+            ? Math.round(rawPromo * 100) / 100
+            : 0,
+          promotionalExpiresAt: b.promotional_expires_at || null
+        };
+      }
+
+      const storeRows = await safeQuery(
+        `SELECT id, tiwi_id, store_name, subdomain, status, plan_id, currency, created_at, updated_at
+         FROM system_stores WHERE owner_id = $1 OR tiwi_id = $2 ORDER BY created_at DESC LIMIT 50`,
+        [targetUserId, String(uRows[0]?.tiwi_id || '')]
+      );
+      storesList = storeRows.map((st) => ({
+        id: st.id || st.tiwi_id,
+        tiwiId: st.tiwi_id || st.id,
+        storeName: st.store_name || 'Tiwlo Store',
+        name: st.store_name || 'Tiwlo Store',
+        subdomain: st.subdomain || null,
+        status: st.status || 'active',
+        planId: st.plan_id || 'free',
+        currency: st.currency || 'USD',
+        createdAt: st.created_at
+      }));
+      for (const st of storesList) {
         const svc = {
           id: st.id,
-          name: st.name || st.slug || 'Store Service',
-          status: st.status || 'active',
-          plan: st.plan || 'standard',
-          domain: st.custom_domain || (st.slug ? `${st.slug}.tiwlo.com` : null),
-          createdAt: st.created_at
+          name: st.storeName,
+          status: st.status,
+          plan: st.planId,
+          domain: st.subdomain || null,
+          createdAt: st.createdAt
         };
         if (['active', 'running', 'trialing'].includes(String(svc.status).toLowerCase())) {
           activeServices.push(svc);
@@ -3662,6 +3696,11 @@ export function createTicketingService(deps = {}) {
       isGuest: false,
       readOnlyForStaff: true,
       user: userSummary,
+      wallet: walletSummary,
+      cashBalance: walletSummary.credits,
+      promoCreditBalance: walletSummary.promotionalCredits,
+      stores: storesList,
+      storeCreatorsCount: storesList.length,
       orders,
       invoices,
       services: {

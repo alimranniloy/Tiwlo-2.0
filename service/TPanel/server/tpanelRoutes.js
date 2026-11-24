@@ -6,8 +6,14 @@ import { getAuthenticatedUserId as getUserId } from '../../../server/security/au
 const router = express.Router();
 TPanelDB.init();
 
-// Enforce authentication for all TPanel API routes
+// Fail-closed lockdown + authentication for all TPanel API routes
 router.use((req, res, next) => {
+  if (String(process.env.TPANEL_ENABLED || '').toLowerCase() !== 'true') {
+    return res.status(403).json({
+      error: 'TPanel Control Panel and File Manager are disabled.',
+      code: 'TPANEL_DISABLED'
+    });
+  }
   const userId = getUserId(req);
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized: Authentication required for TPanel' });

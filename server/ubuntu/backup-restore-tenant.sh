@@ -40,9 +40,13 @@ case "${MODE}" in
     ARCHIVE_FILE="${3:?Specify archive path for restore}"
     WORK_DIR="$(mktemp -d)"
     trap 'rm -rf "${WORK_DIR}"' EXIT
-    tar -xzf "${ARCHIVE_FILE}" -C "${WORK_DIR}"
+    tar --no-same-owner --no-same-permissions -xzf "${ARCHIVE_FILE}" -C "${WORK_DIR}"
+    if tar -tvf "${WORK_DIR}/files.tar" | grep -Eq '(^| )/|(\.\./)|^l'; then
+      echo "Unsafe path or symlink detected in tenant backup archive; aborting restore." >&2
+      exit 1
+    fi
     mkdir -p /srv/tiwlo-tenants
-    tar -C /srv/tiwlo-tenants -xf "${WORK_DIR}/files.tar"
+    tar --no-same-owner --no-same-permissions -C /srv/tiwlo-tenants -xf "${WORK_DIR}/files.tar"
     if [[ -n "${PG_URL}" && -f "${WORK_DIR}/db.dump" ]]; then
       psql "${PG_URL}/postgres" -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 \
         || psql "${PG_URL}/postgres" -c "CREATE DATABASE \"${DB_NAME}\";"

@@ -6,9 +6,56 @@ import { queryPg } from './postgres.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_LOGS_DIR = path.resolve(__dirname, '../logs');
+export const DEFAULT_UPLOAD_DIRS = Object.freeze([
+  path.resolve(__dirname, '../../upload'),
+  path.resolve(__dirname, '../uploads')
+]);
 
 export const RETENTION_POLICY_SETTING_KEY = 'log_retention_policy';
 export const GC_CHECKPOINT_SETTING_KEY = 'log_gc_checkpoint';
+
+/**
+ * Financial, billing, lifecycle audit, and lifetime rollup tables that MUST NEVER
+ * be pruned, truncated, or deleted by automated log rotation or cache eviction.
+ */
+export const PROTECTED_IMMUTABLE_TABLES = Object.freeze([
+  'cloud_droplet_invoices',
+  'platform_billing_orders',
+  'cloud_credit_topups',
+  'cloud_droplet_telemetry_daily',
+  'system_account_service_holds',
+  'system_account_lifecycle_audits',
+  'system_ipv6_change_events'
+]);
+
+const PROTECTED_IMMUTABLE_SET = new Set(PROTECTED_IMMUTABLE_TABLES);
+
+/**
+ * Explicit allowlist of transient log, session, and raw sample tables eligible for
+ * TTL-based garbage collection.
+ */
+export const PRUNABLE_TRANSIENT_TABLES = Object.freeze([
+  'system_sessions',
+  'user_sessions',
+  'live_visitor_sessions',
+  'analytics_visitor_seen_daily',
+  'user_activity_trail',
+  'system_security_events',
+  'system_email_outbox',
+  'email_logs',
+  'system_server_connectivity_logs',
+  'cloud_droplet_telemetry_samples',
+  'analytics_page_daily',
+  'analytics_product_daily'
+]);
+
+const PRUNABLE_TRANSIENT_SET = new Set(PRUNABLE_TRANSIENT_TABLES);
+
+for (const protectedTable of PROTECTED_IMMUTABLE_TABLES) {
+  if (PRUNABLE_TRANSIENT_SET.has(protectedTable)) {
+    throw new Error(`Protected immutable table "${protectedTable}" cannot be in PRUNABLE_TRANSIENT_TABLES`);
+  }
+}
 
 export const DEFAULT_RETENTION_POLICY = Object.freeze({
   autoGcEnabled: true,
@@ -20,6 +67,12 @@ export const DEFAULT_RETENTION_POLICY = Object.freeze({
   securityEventsMaxRows: 100000,
   emailOutboxDays: 30,
   emailOutboxMaxRows: 50000,
+  emailLogsDays: 30,
+  emailLogsMaxRows: 50000,
+  serverConnectivityLogsDays: 14,
+  serverConnectivityLogsMaxRows: 100000,
+  dropletTelemetrySamplesDays: 30,
+  tempUploadArtifactMaxAgeHours: 24,
   analyticsDailyRollupDays: 90,
   diskLogMaxMb: 10,
   gcIntervalMinutes: 30
@@ -109,6 +162,42 @@ export function sanitizeRetentionPolicy(input = {}, base = DEFAULT_RETENTION_POL
       fallback.emailOutboxMaxRows ?? DEFAULT_RETENTION_POLICY.emailOutboxMaxRows,
       500,
       2000000
+    ),
+    emailLogsDays: clampInt(
+      src.emailLogsDays,
+      fallback.emailLogsDays ?? DEFAULT_RETENTION_POLICY.emailLogsDays,
+      1,
+      365
+    ),
+    emailLogsMaxRows: clampInt(
+      src.emailLogsMaxRows,
+      fallback.emailLogsMaxRows ?? DEFAULT_RETENTION_POLICY.emailLogsMaxRows,
+      500,
+      2000000
+    ),
+    serverConnectivityLogsDays: clampInt(
+      src.serverConnectivityLogsDays,
+      fallback.serverConnectivityLogsDays ?? DEFAULT_RETENTION_POLICY.serverConnectivityLogsDays,
+      1,
+      90
+    ),
+    serverConnectivityLogsMaxRows: clampInt(
+      src.serverConnectivityLogsMaxRows,
+      fallback.serverConnectivityLogsMaxRows ?? DEFAULT_RETENTION_POLICY.serverConnectivityLogsMaxRows,
+      1000,
+      5000000
+    ),
+    dropletTelemetrySamplesDays: clampInt(
+      src.dropletTelemetrySamplesDays,
+      fallback.dropletTelemetrySamplesDays ?? DEFAULT_RETENTION_POLICY.dropletTelemetrySamplesDays,
+      7,
+      90
+    ),
+    tempUploadArtifactMaxAgeHours: clampInt(
+      src.tempUploadArtifactMaxAgeHours,
+      fallback.tempUploadArtifactMaxAgeHours ?? DEFAULT_RETENTION_POLICY.tempUploadArtifactMaxAgeHours,
+      1,
+      720
     ),
     analyticsDailyRollupDays: clampInt(
       src.analyticsDailyRollupDays,
@@ -242,7 +331,31 @@ function extractDeletedCount(result) {
   return 0;
 }
 
+/**
+ * Runtime guard enforcing that only allowlisted transient tables can ever be pruned
+ * and any table in PROTECTED_IMMUTABLE_TABLES fails closed before SQL execution.
+ */
+export function assertTablePrunable(tableName) {
+  if (typeof tableName !== 'string' || !/^[a-z_][a-z0-9_]*$/i.test(tableName)) {
+    const err = new Error(`Invalid table identifier for log rotation: ${String(tableName)}`);
+    err.code = 'INVALID_PRUNE_TABLE';
+    throw err;
+  }
+  if (PROTECTED_IMMUTABLE_SET.has(tableName)) {
+    const err = new Error(`Refusing to prune protected immutable table: ${tableName}`);
+    err.code = 'PROTECTED_IMMUTABLE_TABLE';
+    throw err;
+  }
+  if (!PRUNABLE_TRANSIENT_SET.has(tableName)) {
+    const err = new Error(`Table "${tableName}" is not in PRUNABLE_TRANSIENT_TABLES allowlist`);
+    err.code = 'TABLE_NOT_ALLOWLISTED';
+    throw err;
+  }
+  return tableName;
+}
+
 async function batchedDeleteByCtid(q, table, whereSql, params, batchSize) {
+  assertTablePrunable(table);
   let totalDeleted = 0;
   const limitParamIndex = params.length + 1;
   const sql = `
@@ -273,6 +386,7 @@ async function batchedDeleteByCtid(q, table, whereSql, params, batchSize) {
 }
 
 async function pruneTableWithDaysAndCap(q, table, days, maxRows, batchSize) {
+  assertTablePrunable(table);
   const offsetIndex = Math.max(0, maxRows - 1);
   const whereSql = `
     created_at < CURRENT_TIMESTAMP - ($1 * INTERVAL '1 day')
@@ -282,6 +396,104 @@ async function pruneTableWithDaysAndCap(q, table, days, maxRows, batchSize) {
     )
   `;
   return batchedDeleteByCtid(q, table, whereSql, [days, offsetIndex], batchSize);
+}
+
+/**
+ * Public allowlist-enforced pruning entrypoint for targeted transient table cleanup.
+ */
+export async function pruneTransientTable({
+  queryPg: q = queryPg,
+  table,
+  whereSql,
+  params = [],
+  batchSize = 1000
+} = {}) {
+  assertTablePrunable(table);
+  const boundedBatch = clampInt(batchSize, 1000, 50, 5000);
+  return batchedDeleteByCtid(q, table, whereSql, params, boundedBatch);
+}
+
+const STALE_STAGING_FILE_RE = /^(?:\.tiwlo-staging-[0-9a-f-]{36}\.tmp|tiwlo-tmp-.+\.tmp)$/i;
+const STALE_TMP_UPLOAD_DIR_RE = /^tiwlo-(?:upload|media|staging|tmp)-[a-z0-9_-]+$/i;
+
+function sweepStaleStagingFilesInDir(dirPath, cutoffMs, fsModule, stats, depth = 0) {
+  if (depth > 4 || !dirPath || !fsModule.existsSync(dirPath)) return;
+  let entries;
+  try {
+    entries = fsModule.readdirSync(dirPath, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.isSymbolicLink()) continue;
+    const fullPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      sweepStaleStagingFilesInDir(fullPath, cutoffMs, fsModule, stats, depth + 1);
+      continue;
+    }
+    if (!entry.isFile() || !STALE_STAGING_FILE_RE.test(entry.name)) continue;
+    try {
+      const st = fsModule.statSync(fullPath);
+      if (st.mtimeMs < cutoffMs) {
+        fsModule.unlinkSync(fullPath);
+        stats.removedFiles += 1;
+        stats.reclaimedBytes += st.size || 0;
+      }
+    } catch {
+      // ignore concurrent unlink or permission error
+    }
+  }
+}
+
+/**
+ * Evicts expired staging files (.tiwlo-staging-*.tmp) and orphaned tiwlo temp upload
+ * directories older than maxAgeHours while leaving active uploads untouched.
+ */
+export function cleanupTempUploadArtifacts({
+  uploadDirs = DEFAULT_UPLOAD_DIRS,
+  tmpDir = os.tmpdir(),
+  maxAgeHours = DEFAULT_RETENTION_POLICY.tempUploadArtifactMaxAgeHours,
+  nowMs = Date.now(),
+  fsModule = fs
+} = {}) {
+  const stats = { removedFiles: 0, removedDirs: 0, reclaimedBytes: 0 };
+  const safeHours = clampInt(maxAgeHours, DEFAULT_RETENTION_POLICY.tempUploadArtifactMaxAgeHours, 1, 720);
+  const cutoffMs = Number(nowMs) - safeHours * 3600 * 1000;
+
+  if (Array.isArray(uploadDirs)) {
+    for (const dir of uploadDirs) {
+      sweepStaleStagingFilesInDir(dir, cutoffMs, fsModule, stats, 0);
+    }
+  }
+
+  if (tmpDir && fsModule.existsSync(tmpDir)) {
+    let tmpEntries = [];
+    try {
+      tmpEntries = fsModule.readdirSync(tmpDir, { withFileTypes: true });
+    } catch {
+      tmpEntries = [];
+    }
+    for (const entry of tmpEntries) {
+      if (entry.isSymbolicLink() || !STALE_TMP_UPLOAD_DIR_RE.test(entry.name)) continue;
+      const fullPath = path.join(tmpDir, entry.name);
+      try {
+        const st = fsModule.statSync(fullPath);
+        if (st.mtimeMs >= cutoffMs) continue;
+        if (entry.isDirectory()) {
+          fsModule.rmSync(fullPath, { recursive: true, force: true });
+          stats.removedDirs += 1;
+        } else if (entry.isFile()) {
+          fsModule.unlinkSync(fullPath);
+          stats.removedFiles += 1;
+          stats.reclaimedBytes += st.size || 0;
+        }
+      } catch {
+        // ignore concurrent cleanup error
+      }
+    }
+  }
+
+  return stats;
 }
 
 export function rotateDiskLogs(logsDir = DEFAULT_LOGS_DIR, diskLogMaxMb = 10, fsModule = fs) {
@@ -398,6 +610,9 @@ export async function runAutomatedLogGarbageCollection(
       userActivityTrail,
       securityEvents,
       emailOutbox,
+      emailLogs,
+      serverConnectivityLogs,
+      dropletTelemetrySamples,
       analyticsPageDaily,
       analyticsProductDaily
     ] = await Promise.all([
@@ -450,6 +665,28 @@ export async function runAutomatedLogGarbageCollection(
         policy.emailOutboxMaxRows,
         boundedBatch
       ),
+      pruneTableWithDaysAndCap(
+        q,
+        'email_logs',
+        policy.emailLogsDays,
+        policy.emailLogsMaxRows,
+        boundedBatch
+      ),
+      pruneTableWithDaysAndCap(
+        q,
+        'system_server_connectivity_logs',
+        policy.serverConnectivityLogsDays,
+        policy.serverConnectivityLogsMaxRows,
+        boundedBatch
+      ),
+      // Purge raw >30d telemetry samples only; cloud_droplet_telemetry_daily is immutable & preserved permanently.
+      batchedDeleteByCtid(
+        q,
+        'cloud_droplet_telemetry_samples',
+        "recorded_at < CURRENT_TIMESTAMP - ($1 * INTERVAL '1 day')",
+        [policy.dropletTelemetrySamplesDays],
+        boundedBatch
+      ),
       batchedDeleteByCtid(
         q,
         'analytics_page_daily',
@@ -473,11 +710,21 @@ export async function runAutomatedLogGarbageCollection(
       userActivityTrail,
       securityEvents,
       emailOutbox,
+      emailLogs,
+      serverConnectivityLogs,
+      dropletTelemetrySamples,
       analyticsPageDaily,
       analyticsProductDaily
     };
     const totalDeleted = Object.values(deletedCounts).reduce((sum, n) => sum + Number(n || 0), 0);
     const diskRotated = rotateDiskLogs(logsDir, policy.diskLogMaxMb, fsModule);
+    const tempArtifacts = cleanupTempUploadArtifacts({
+      uploadDirs: Object.prototype.hasOwnProperty.call(deps, 'uploadDirs') ? deps.uploadDirs : DEFAULT_UPLOAD_DIRS,
+      tmpDir: Object.prototype.hasOwnProperty.call(deps, 'tmpDir') ? deps.tmpDir : os.tmpdir(),
+      maxAgeHours: policy.tempUploadArtifactMaxAgeHours,
+      nowMs: deps.nowMs ?? Date.now(),
+      fsModule
+    });
     const durationMs = Math.max(0, Date.now() - startedAtMs);
 
     const prevCheckpoint = await getGcCheckpoint({ queryPg: q });
@@ -503,6 +750,8 @@ export async function runAutomatedLogGarbageCollection(
       totalDeleted,
       totalHistoricalPrunedRows,
       diskRotated,
+      tempArtifacts,
+      protectedTablesPreserved: PROTECTED_IMMUTABLE_TABLES,
       durationMs
     };
     inMemoryLastReport = report;

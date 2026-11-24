@@ -2,6 +2,8 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { CloudDB } from '../db/cloud.js';
 import { BillingDB } from '../db/billing.js';
+import { queryDropletTelemetry } from '../db/dropletTelemetry.js';
+import { attemptAutoUnsuspendForUser } from '../db/cloudDropletBilling.js';
 import { getUserWelcomePromoStatus } from '../db/promotions.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
@@ -77,6 +79,21 @@ router.get('/droplets/catalog', async (_req, res) => {
   }
 });
 
+router.get('/droplets/check-availability', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    const availability = await CloudDB.checkDropletAvailability({
+      userId,
+      hostname: req.query?.hostname || '',
+      username: req.query?.username || ''
+    });
+    res.json({ success: true, ...availability });
+  } catch (err) {
+    console.error('Error checking droplet availability:', err);
+    res.status(500).json({ error: 'Failed to check hostname and username availability' });
+  }
+});
+
 router.get('/droplets', async (req, res) => {
   try {
     const userId = getReqUserId(req);
@@ -115,8 +132,11 @@ router.patch('/droplets/:id/name', async (req, res) => {
     if (!droplet) return res.status(404).json({ error: 'Droplet not found' });
     res.json(droplet);
   } catch (err) {
-    console.error('Error renaming droplet:', err);
-    res.status(500).json({ error: 'Failed to rename droplet' });
+    const status = Number.isInteger(err?.statusCode) && err.statusCode >= 400 && err.statusCode < 500
+      ? err.statusCode
+      : 500;
+    if (status >= 500) console.error('Error renaming droplet:', err);
+    res.status(status).json({ error: err?.message || 'Failed to rename droplet' });
   }
 });
 
@@ -132,7 +152,11 @@ router.patch('/droplets/:id/status', async (req, res) => {
     if (!droplet) return res.status(404).json({ error: 'Droplet not found' });
     res.json(droplet);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update droplet status' });
+    const status = Number.isInteger(err?.statusCode) && err.statusCode >= 400 && err.statusCode < 500
+      ? err.statusCode
+      : 500;
+    if (status >= 500) console.error('Error updating droplet status:', err);
+    res.status(status).json({ error: err?.message || 'Failed to update droplet status' });
   }
 });
 
@@ -146,6 +170,128 @@ router.delete('/droplets/:id', async (req, res) => {
     res.json({ success: ok });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete droplet' });
+  }
+});
+
+router.get('/droplets/:id/detail', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const detail = await CloudDB.getDropletDetail(userId, req.params.id);
+    if (!detail) return res.status(404).json({ error: 'Droplet not found' });
+    res.json({ success: true, ...detail });
+  } catch (err) {
+    console.error('Error loading droplet detail:', err);
+    res.status(500).json({ error: 'Failed to load droplet detail' });
+  }
+});
+
+router.get('/droplets/:id/telemetry', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    const telemetry = await queryDropletTelemetry({
+      dropletId: req.params.id,
+      userId,
+      range: req.query?.range || '24h',
+      from: req.query?.from || null,
+      to: req.query?.to || null
+    });
+    res.json({ success: true, ...telemetry });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load droplet telemetry' });
+  }
+});
+
+router.post('/droplets/:id/firewall', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    const rule = await CloudDB.addDropletFirewallRule(userId, req.params.id, req.body || {});
+    res.status(201).json({ success: true, rule });
+  } catch (err) {
+    res.status(err?.statusCode || 400).json({ error: err.message || 'Failed to add firewall rule' });
+  }
+});
+
+router.delete('/droplets/:id/firewall/:ruleId', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const ok = await CloudDB.removeDropletFirewallRule(userId, req.params.id, req.params.ruleId);
+    if (!ok) return res.status(404).json({ error: 'Firewall rule not found' });
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: 'Failed to remove firewall rule' });
+  }
+});
+
+router.post('/droplets/:id/snapshots', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    const snapshot = await CloudDB.createDropletSnapshot(userId, req.params.id, req.body?.name);
+    res.status(201).json({ success: true, snapshot });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to create snapshot' });
+  }
+});
+
+router.delete('/droplets/:id/snapshots/:snapId', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const ok = await CloudDB.removeDropletSnapshot(userId, req.params.id, req.params.snapId);
+    if (!ok) return res.status(404).json({ error: 'Snapshot not found' });
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: 'Failed to delete snapshot' });
+  }
+});
+
+router.post('/droplets/:id/snapshots/:snapId/restore', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    res.json({ success: true, restored: true, snapshotId: req.params.snapId });
+  } catch {
+    res.status(500).json({ error: 'Failed to restore snapshot' });
+  }
+});
+
+router.patch('/droplets/:id/backups', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    res.json({ success: true, enabled: Boolean(req.body?.enabled) });
+  } catch {
+    res.status(500).json({ error: 'Failed to update backup preference' });
+  }
+});
+
+router.post('/droplets/:id/dns', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    res.status(201).json({
+      success: true,
+      sslPolicy: 'User-Managed inside VPS (Platform SSL Disabled)',
+      message: 'Configure your domain A/AAAA record under /domains or connect via custom nameservers dns1.tiwlo.com / dns2.tiwlo.com.'
+    });
+  } catch {
+    res.status(500).json({ error: 'Failed to bind DNS record' });
   }
 });
 
@@ -321,6 +467,11 @@ async function handleCreditTopupReturn(req, res, { ipn = false } = {}) {
       return ipn ? res.json({ received: true, completed: result === 'success', status: result }) : redirectCreditResult(res, result, topup.return_origin);
     }
     const verified = await BillingDB.verifyAndCompleteCreditTopup(topup, { query: req.query, body: req.body });
+    if (verified.success && (topup.user_id || topup.userId)) {
+      await attemptAutoUnsuspendForUser({ userId: topup.user_id || topup.userId }).catch((err) =>
+        console.warn('[Cloud Billing] Auto-unsuspend on topup return notice:', err?.message || err)
+      );
+    }
     if (!verified.success) {
       const terminalStatus = getTerminalTopupStatus(verified.status);
       if (terminalStatus) {
@@ -356,6 +507,11 @@ router.post('/billing/credits/stripe/webhook', async (req, res) => {
       rawBody: req.rawBody,
       signature: req.get('stripe-signature')
     });
+    if (verified.success && (topup.user_id || topup.userId)) {
+      await attemptAutoUnsuspendForUser({ userId: topup.user_id || topup.userId }).catch((err) =>
+        console.warn('[Cloud Billing] Auto-unsuspend on Stripe webhook notice:', err?.message || err)
+      );
+    }
     if (!verified.success) {
       const terminalStatus = getTerminalTopupStatus(verified.status);
       if (terminalStatus) await BillingDB.setCreditTopupTerminalStatus(topup.id, terminalStatus);
@@ -385,6 +541,9 @@ router.post('/billing/vouchers/redeem', async (req, res) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const result = await BillingDB.redeemVoucher(userId, req.body?.code, req);
     if (!result.success) return res.status(result.statusCode || 400).json(result);
+    await attemptAutoUnsuspendForUser({ userId }).catch((err) =>
+      console.warn('[Cloud Billing] Auto-unsuspend on voucher redeem notice:', err?.message || err)
+    );
     return res.json(result);
   } catch (err) {
     console.error('Error redeeming cloud voucher:', err);

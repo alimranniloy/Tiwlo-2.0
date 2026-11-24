@@ -9,6 +9,7 @@ import TodaysDealsSection from './components/TodaysDealsSection';
 import TiwiFooter from './components/TiwiFooter';
 import TiwiMobileNav from './components/TiwiMobileNav';
 import { getProductDiscount } from './storefrontUtils';
+import { sanitizeHttpUrl, sanitizeRichHtml } from '../../utils/safeHtml.js';
 
 // Dedicated Standalone Pages (ZERO POPUPS)
 import ProductDetailPage from './pages/ProductDetailPage';
@@ -442,14 +443,16 @@ function TiwiMartContent({
           const page = (storeSettings?.storePages || []).find(item =>
             item.enabled !== false && item.slug === routeState.params?.slug
           );
+          const safePageImage = sanitizeHttpUrl(page?.image, { allowRelative: true });
+          const safePageHtml = sanitizeRichHtml(page?.content || '');
           return page ? (
             <main className="mx-auto w-full max-w-5xl px-4 py-10">
               <article className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-10">
-                {page.image && <img src={page.image} alt="" className="mb-8 max-h-[420px] w-full rounded-2xl object-cover" />}
+                {safePageImage && <img src={safePageImage} alt="" className="mb-8 max-h-[420px] w-full rounded-2xl object-cover" />}
                 <h1 className="mb-6 text-3xl font-black text-neutral-900">{page.title}</h1>
                 <div
                   className="prose prose-slate max-w-none break-words"
-                  dangerouslySetInnerHTML={{ __html: page.content || '' }}
+                  dangerouslySetInnerHTML={{ __html: safePageHtml }}
                 />
               </article>
             </main>

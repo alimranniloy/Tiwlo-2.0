@@ -1,22 +1,13 @@
-import { renderBaseEmail } from './baseTemplate.js';
+import { renderBaseEmail, escapeEmailHtml, sanitizeEmailUrl } from './baseTemplate.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
 
-function escapeHtml(value) {
-  return String(value || '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
 export function renderIdentityVerificationRequiredEmail({ to, identityUrl, reason = '' }) {
-  const targetUrl = identityUrl || getPlatformUrl('identity-required');
+  const targetUrl = escapeEmailHtml(sanitizeEmailUrl(identityUrl, getPlatformUrl('identity-required')));
   const cleanReason = String(reason || '').trim().slice(0, 600);
   const reasonBlock = cleanReason
     ? `<div style="margin:0 0 18px;padding:14px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;">
         <div style="font-size:12px;font-weight:600;color:#b91c1c;margin-bottom:4px;">Reason / Details</div>
-        <div style="font-size:13px;line-height:20px;color:#7f1d1d;">${escapeHtml(cleanReason)}</div>
+        <div style="font-size:13px;line-height:20px;color:#7f1d1d;">${escapeEmailHtml(cleanReason)}</div>
       </div>`
     : '';
   const contentHtml = `

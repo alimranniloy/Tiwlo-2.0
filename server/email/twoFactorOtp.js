@@ -1,4 +1,4 @@
-import { renderBaseEmail } from './baseTemplate.js';
+import { renderBaseEmail, escapeEmailHtml } from './baseTemplate.js';
 
 /**
  * Two-Step Verification (2FA) OTP Email Template
@@ -10,6 +10,7 @@ import { renderBaseEmail } from './baseTemplate.js';
  * - Security instruction if unexpected
  */
 export function renderTwoFactorEmail({ to, name, code }) {
+  const safeCode = escapeEmailHtml(code);
   const contentHtml = `
     <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 500; line-height: 28px; color: #202124; text-align: center;">
       2-Step Verification
@@ -25,7 +26,7 @@ export function renderTwoFactorEmail({ to, name, code }) {
         <td align="center">
           <div style="display: inline-block; background-color: #f8f9fa; border: 1px solid #dadce0; border-radius: 8px; padding: 16px 32px; text-align: center;">
             <span class="code-display" style="font-family: 'Google Sans', Roboto, 'Roboto Mono', Consolas, monospace; font-size: 32px; font-weight: 500; letter-spacing: 6px; color: #1f1f1f; line-height: 1;">
-              ${code}
+              ${safeCode}
             </span>
           </div>
         </td>
@@ -44,9 +45,9 @@ export function renderTwoFactorEmail({ to, name, code }) {
   `;
 
   return renderBaseEmail({
-    title: `${code} is your Tiwlo 2-Step Verification code`,
+    title: `${safeCode} is your Tiwlo 2-Step Verification code`,
     recipientEmail: to,
     contentHtml,
-    preheader: `${code} is your Tiwlo 2-Step Verification code. Valid for 10 minutes.`
+    preheader: `${safeCode} is your Tiwlo 2-Step Verification code. Valid for 10 minutes.`
   });
 }

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Activity,
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   Check,
   CreditCard,
@@ -11,6 +12,8 @@ import {
   GripVertical,
   KeyRound,
   Layers,
+  Plus,
+  Server,
   ShieldAlert,
   SlidersHorizontal,
   Users,
@@ -31,6 +34,7 @@ import CloudRecentActivity from './components/CloudRecentActivity';
 
 // Dedicated Views (No Modals - Full Page Routing)
 import CreateDropletView from './views/CreateDropletView';
+import DropletDetailView from './views/DropletDetailView';
 import CreateStoreView from './views/CreateStoreView';
 import ImagesView from './views/ImagesView';
 import SnapshotsView from './views/SnapshotsView';
@@ -67,6 +71,151 @@ import {
   createStoreGraphQL
 } from './graphql/cloudQueries';
 
+const VALID_DROPLET_SECTIONS = ['overview', 'network', 'dns', 'billing'];
+
+const CLOUD_NAV_PATH_MAP = {
+  dashboard: '/cloud',
+  workspace: '/cloud',
+  'workspace-hub': '/cloud/services',
+  'my-online-store': '/cloud/online-store',
+  'create-store': '/cloud/create-store',
+  marketplace: '/cloud/marketplace',
+  'create-droplet': '/cloud/create-droplet',
+  'my-droplets': '/cloud/droplets',
+  images: '/cloud/images',
+  snapshots: '/cloud/snapshots',
+  backups: '/cloud/backups',
+  volumes: '/cloud/volumes',
+  kubernetes: '/cloud/kubernetes',
+  identity: '/cloud/identity',
+  'whatsapp-automation': '/cloud/whatsapp',
+  'help-support': '/cloud/help',
+  domains: '/domains',
+  billing: '/billing',
+  'profile-settings': '/profile-settings',
+  'active-sessions': '/active-sessions',
+  'two-factor-auth': '/two-factor-auth',
+  'team-management': '/team-management',
+};
+
+function parseCloudDropletRoute(rawNavOrPath) {
+  const raw = String(rawNavOrPath || '').replace(/^\/+|\/+$/g, '');
+  if (raw === 'my-droplets' || raw === 'cloud/droplets') {
+    return { nav: 'my-droplets', dropletId: null, section: 'overview' };
+  }
+  if (raw.startsWith('cloud/droplets/')) {
+    const parts = raw.slice('cloud/droplets/'.length).split('/').filter(Boolean);
+    if (parts.length > 0) {
+      const dropletId = decodeURIComponent(parts[0]);
+      const candidateSection = parts[1] ? decodeURIComponent(parts[1]).toLowerCase() : 'overview';
+      const section = VALID_DROPLET_SECTIONS.includes(candidateSection) ? candidateSection : 'overview';
+      return { nav: 'droplet-detail', dropletId, section };
+    }
+    return { nav: 'my-droplets', dropletId: null, section: 'overview' };
+  }
+  return null;
+}
+
+function parseCloudNavFromPathname(pathname, fallbackNav = null) {
+  const dropletRoute = parseCloudDropletRoute(pathname);
+  if (dropletRoute) return dropletRoute;
+
+  const clean = String(pathname || '').replace(/^\/+|\/+$/g, '');
+  if (!clean || clean === 'cloud' || clean === 'workspace' || clean === 'dashboard') {
+    return { nav: fallbackNav && fallbackNav !== 'dashboard' ? fallbackNav : 'dashboard', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/services' || clean === 'workspace/hub' || clean === 'workspace-hub') {
+    return { nav: 'workspace-hub', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/online-store' || clean === 'my-online-store') {
+    return { nav: 'my-online-store', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/create-store') {
+    return { nav: 'create-store', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/marketplace' || clean === 'marketplace') {
+    return { nav: 'marketplace', dropletId: null, section: 'overview' };
+  }
+  if (clean.startsWith('cloud/marketplace/')) {
+    return { nav: clean.slice('cloud/'.length), dropletId: null, section: 'overview' };
+  }
+  if (clean.startsWith('marketplace/')) {
+    return { nav: clean, dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/create-droplet' || clean === 'create-droplet') {
+    return { nav: 'create-droplet', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/images' || clean === 'images') {
+    return { nav: 'images', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/snapshots' || clean === 'snapshots') {
+    return { nav: 'snapshots', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/backups' || clean === 'backups') {
+    return { nav: 'backups', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/volumes' || clean === 'volumes') {
+    return { nav: 'volumes', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/kubernetes' || clean === 'kubernetes') {
+    return { nav: 'kubernetes', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/identity' || clean === 'identity') {
+    return { nav: 'identity', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/whatsapp' || clean.startsWith('cloud/whatsapp/') || clean === 'whatsapp-automation' || clean.startsWith('whatsapp-automation/')) {
+    return { nav: 'whatsapp-automation', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/help' || clean === 'help-support' || clean === 'help' || clean === 'support') {
+    return { nav: 'help-support', dropletId: null, section: 'overview' };
+  }
+  if (clean.startsWith('cloud/help/')) {
+    return { nav: `help-support/${clean.slice('cloud/help/'.length)}`, dropletId: null, section: 'overview' };
+  }
+  if (clean.startsWith('help-support/')) {
+    return { nav: clean, dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/domains' || clean === 'domains') {
+    return { nav: 'domains', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'billing' || clean.startsWith('billing/') || clean === 'cloud/billing' || clean.startsWith('cloud/billing/')) {
+    return { nav: 'billing', dropletId: null, section: 'overview' };
+  }
+  if (clean.startsWith('cloud/workspace/')) {
+    return { nav: clean.slice('cloud/'.length), dropletId: null, section: 'overview' };
+  }
+  if (clean.startsWith('workspace/')) {
+    return { nav: clean, dropletId: null, section: 'overview' };
+  }
+  if (clean === 'cloud/profile-settings' || clean.startsWith('cloud/profile-settings/')) {
+    return { nav: clean.slice('cloud/'.length), dropletId: null, section: 'overview' };
+  }
+  if (clean === 'profile-settings' || clean.startsWith('profile-settings/')) {
+    return { nav: clean, dropletId: null, section: 'overview' };
+  }
+  if (clean === 'active-sessions' || clean === 'sessions' || clean === 'cloud/active-sessions') {
+    return { nav: 'active-sessions', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'two-factor-auth' || clean === 'cloud/two-factor-auth') {
+    return { nav: 'two-factor-auth', dropletId: null, section: 'overview' };
+  }
+  if (clean === 'team-management' || clean === 'cloud/team-management') {
+    return { nav: 'team-management', dropletId: null, section: 'overview' };
+  }
+  return null;
+}
+
+function getDropletAuthHeaders(extra = {}) {
+  let token = '';
+  try {
+    token = localStorage.getItem('stockpro_session') || sessionStorage.getItem('stockpro_session') || '';
+  } catch {}
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
 export default function CloudDashboard({
   currentUser,
   initialNav = 'dashboard',
@@ -78,17 +227,41 @@ export default function CloudDashboard({
   const userId = currentUser?.id || currentUser?.tiwiId || null;
   const navStorageKey = `tiwlo.cloudActiveNav.${userId || 'anon'}`;
 
-  const [activeNav, setActiveNav] = useState(() => {
-    if (initialNav && initialNav !== 'dashboard') return initialNav;
+  const resolveInitialRoute = () => {
     try {
-      const saved = sessionStorage.getItem(navStorageKey);
-      if (saved === 'create-store' || saved === 'my-online-store') return saved;
+      const locRoute = parseCloudNavFromPathname(window.location.pathname, initialNav);
+      if (locRoute) return locRoute;
     } catch {}
-    return initialNav || 'dashboard';
-  });
+    const propRoute = parseCloudDropletRoute(initialNav);
+    if (propRoute) return propRoute;
+    if (initialNav && initialNav !== 'dashboard') {
+      return { nav: initialNav, dropletId: null, section: 'overview' };
+    }
+    return { nav: initialNav || 'dashboard', dropletId: null, section: 'overview' };
+  };
+
+  const initialRouteRef = resolveInitialRoute();
+  const [activeNav, setActiveNav] = useState(initialRouteRef.nav);
+  const [selectedDropletId, setSelectedDropletId] = useState(initialRouteRef.dropletId);
+  const [dropletSection, setDropletSection] = useState(initialRouteRef.section);
 
   useEffect(() => {
-    if (initialNav && initialNav !== 'dashboard') {
+    try {
+      const locRoute = parseCloudNavFromPathname(window.location.pathname, initialNav);
+      if (locRoute) {
+        setActiveNav(locRoute.nav);
+        setSelectedDropletId(locRoute.dropletId);
+        setDropletSection(locRoute.section);
+        return;
+      }
+    } catch {}
+    const propRoute = parseCloudDropletRoute(initialNav);
+    if (propRoute) {
+      setActiveNav(propRoute.nav);
+      setSelectedDropletId(propRoute.dropletId);
+      setDropletSection(propRoute.section);
+    } else if (initialNav) {
+      setSelectedDropletId(null);
       setActiveNav(initialNav);
     }
   }, [initialNav]);
@@ -151,7 +324,7 @@ export default function CloudDashboard({
 
   const launchStoreConsole = (store = currentStore) => {
     if (!store?.tiwiId) {
-      setActiveNav('create-store');
+      navigateCloudView('create-store');
       showToast?.('Create a store first to open the store dashboard.', 'info');
       return;
     }
@@ -169,22 +342,60 @@ export default function CloudDashboard({
   const [draggedWidgetId, setDraggedWidgetId] = useState(null);
   const [savingWidgetOrder, setSavingWidgetOrder] = useState(false);
 
+  const openDropletDetail = (dropletOrId, section = 'overview') => {
+    const id = typeof dropletOrId === 'string' ? dropletOrId : dropletOrId?.id;
+    if (!id) return;
+    const safeSection = VALID_DROPLET_SECTIONS.includes(section) ? section : 'overview';
+    setSelectedDropletId(id);
+    setDropletSection(safeSection);
+    setActiveNav('droplet-detail');
+    try {
+      const targetPath =
+        safeSection === 'overview'
+          ? `/cloud/droplets/${encodeURIComponent(id)}`
+          : `/cloud/droplets/${encodeURIComponent(id)}/${safeSection}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
+      }
+    } catch {}
+  };
+
   const navigateCloudView = (target) => {
+    const dropletRoute = parseCloudDropletRoute(target);
+    if (dropletRoute) {
+      setActiveNav(dropletRoute.nav);
+      setSelectedDropletId(dropletRoute.dropletId);
+      setDropletSection(dropletRoute.section);
+      try {
+        const cleanPath = dropletRoute.dropletId
+          ? dropletRoute.section === 'overview'
+            ? `/cloud/droplets/${encodeURIComponent(dropletRoute.dropletId)}`
+            : `/cloud/droplets/${encodeURIComponent(dropletRoute.dropletId)}/${dropletRoute.section}`
+          : '/cloud/droplets';
+        if (window.location.pathname !== cleanPath) {
+          window.history.pushState(null, '', cleanPath);
+        }
+      } catch {}
+      return;
+    }
+
+    setSelectedDropletId(null);
     setActiveNav(target);
     try {
-      const pathMap = {
-        dashboard: '/workspace',
-        workspace: '/workspace',
-        'workspace-hub': '/workspace/hub',
-        marketplace: '/marketplace',
-        identity: '/identity',
-        'whatsapp-automation': '/whatsapp-automation',
-        'profile-settings': '/profile-settings',
-        'active-sessions': '/active-sessions',
-        'two-factor-auth': '/two-factor-auth',
-        'team-management': '/team-management',
-      };
-      const cleanPath = pathMap[target] || (target.startsWith('/') ? target : `/${target}`);
+      let cleanPath = CLOUD_NAV_PATH_MAP[target];
+      if (!cleanPath) {
+        if (target === 'workspace/hub') {
+          cleanPath = '/cloud/services';
+        } else if (target.startsWith('marketplace/')) {
+          cleanPath = `/cloud/${target}`;
+        } else if (target.startsWith('help-support/')) {
+          cleanPath = `/cloud/help/${target.slice('help-support/'.length)}`;
+        } else if (target.startsWith('/')) {
+          cleanPath = target;
+        } else {
+          cleanPath = `/${target}`;
+        }
+      }
       if (window.location.pathname !== cleanPath) {
         window.history.pushState(null, '', cleanPath);
       }
@@ -232,21 +443,48 @@ export default function CloudDashboard({
     persistWidgetOrder(copy);
   };
 
-  // Load Cloud Data from real GraphQL
+  // Load Cloud Data from real GraphQL + REST droplets fallback
   const loadCloudData = async () => {
     try {
       setLoading(true);
       setCloudError('');
-      const [cloudData, storesData] = await Promise.all([
-        getCloudDashboardData(userId),
+      const [cloudData, restDroplets, storesData] = await Promise.all([
+        getCloudDashboardData(userId).catch(() => null),
+        fetch('/api/cloud/droplets', {
+          credentials: 'include',
+          headers: getDropletAuthHeaders(),
+        })
+          .then((r) => (r.ok ? r.json().catch(() => null) : null))
+          .catch(() => null),
         getUserStores(userId)
       ]);
 
+      const gqlDroplets = Array.isArray(cloudData?.droplets) ? cloudData.droplets.filter(Boolean) : [];
+      const finalDroplets = Array.isArray(restDroplets) ? restDroplets : gqlDroplets;
+      setDroplets(finalDroplets);
+
       if (cloudData) {
-        setMetrics(cloudData.metrics);
-        setDroplets(cloudData.droplets || []);
+        const computedVcpus = finalDroplets.reduce((sum, d) => sum + Number(d?.vcpus || 0), 0);
+        const computedStorage = finalDroplets.reduce((sum, d) => sum + (parseFloat(d?.storage) || 0), 0);
+        setMetrics({
+          ...(cloudData.metrics || {}),
+          totalDroplets: finalDroplets.length,
+          totalVcpus: Math.max(Number(cloudData.metrics?.totalVcpus || 0), computedVcpus),
+          totalStorage: cloudData.metrics?.totalStorage && finalDroplets.length === gqlDroplets.length
+            ? cloudData.metrics.totalStorage
+            : `${computedStorage} GB`,
+        });
         setActivities(cloudData.activities || []);
         setPopularImages(cloudData.popularImages || []);
+      } else if (finalDroplets.length > 0) {
+        const computedVcpus = finalDroplets.reduce((sum, d) => sum + Number(d?.vcpus || 0), 0);
+        const computedStorage = finalDroplets.reduce((sum, d) => sum + (parseFloat(d?.storage) || 0), 0);
+        setMetrics({
+          totalDroplets: finalDroplets.length,
+          totalVcpus: computedVcpus,
+          totalStorage: `${computedStorage} GB`,
+          totalBandwidth: 'Unavailable',
+        });
       }
 
       if (storesData && storesData.length > 0) {
@@ -270,6 +508,47 @@ export default function CloudDashboard({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleToggleDropletStatus = async (item, nextStatus) => {
+    const res = await fetch(`/api/cloud/droplets/${encodeURIComponent(item.id)}/status`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: getDropletAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || 'Could not update VPS power state.');
+    const updated = json?.droplet || json;
+    setDroplets((prev) => prev.map((d) => (d.id === item.id ? { ...d, ...updated, status: nextStatus } : d)));
+    showToast?.(`VPS ${item.name} is now ${nextStatus}.`, 'success');
+  };
+
+  const handleRenameDroplet = async (item, newName) => {
+    const res = await fetch(`/api/cloud/droplets/${encodeURIComponent(item.id)}/name`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: getDropletAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ name: newName }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || 'Could not rename VPS.');
+    const updated = json?.droplet || json;
+    setDroplets((prev) => prev.map((d) => (d.id === item.id ? { ...d, ...updated, name: newName } : d)));
+    showToast?.(`Renamed VPS to ${newName}.`, 'success');
+  };
+
+  const handleDeleteDroplet = async (item) => {
+    const res = await fetch(`/api/cloud/droplets/${encodeURIComponent(item.id)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: getDropletAuthHeaders(),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.success === false) throw new Error(json?.error || 'Could not destroy VPS.');
+    setDroplets((prev) => prev.filter((d) => d.id !== item.id));
+    showToast?.(`VPS ${item.name} destroyed.`, 'success');
+    loadCloudData();
   };
 
   useEffect(() => {
@@ -315,21 +594,32 @@ export default function CloudDashboard({
   }, [userId]);
 
   useEffect(() => {
-    const syncBillingTabFromUrl = () => {
+    const syncCloudRoutesFromUrl = () => {
       try {
         const path = window.location.pathname || '';
         const tabParam = new URLSearchParams(window.location.search).get('tab');
         if (path.startsWith('/billing/credits') || path.startsWith('/cloud/billing/credits') || tabParam === 'credits') {
+          setSelectedDropletId(null);
           setBillingInitialTab('credits');
           setActiveNav('billing');
-        } else if (path.startsWith('/billing/invoices/')) {
+          return;
+        }
+        if (path.startsWith('/billing/invoices/')) {
+          setSelectedDropletId(null);
           setBillingInitialTab('invoices');
           setActiveNav('billing');
+          return;
+        }
+        const parsed = parseCloudNavFromPathname(path);
+        if (parsed) {
+          setActiveNav(parsed.nav);
+          setSelectedDropletId(parsed.dropletId);
+          setDropletSection(parsed.section);
         }
       } catch {}
     };
-    window.addEventListener('popstate', syncBillingTabFromUrl);
-    return () => window.removeEventListener('popstate', syncBillingTabFromUrl);
+    window.addEventListener('popstate', syncCloudRoutesFromUrl);
+    return () => window.removeEventListener('popstate', syncCloudRoutesFromUrl);
   }, []);
 
   // Handler: Create Store ("My Online Store" + action)
@@ -377,17 +667,17 @@ export default function CloudDashboard({
     <div className={`tiwi-v3-cloud flex min-h-dvh font-sans text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100 ${isBillingRoute ? 'bg-white' : 'bg-neutral-50'}`}>
       {/* Left Sidebar */}
       <CloudSidebar
-        activeNav={activeNav}
+        activeNav={activeNav === 'droplet-detail' ? 'my-droplets' : activeNav}
         setActiveNav={(nav) => navigateCloudView(nav)}
         currentUser={profileUser || currentUser}
         userStores={userStores}
         currentStore={currentStore}
         serviceSubscriptions={serviceSubscriptions}
         onNavigateTab={onNavigateTab}
-        onOpenCreateStore={() => setActiveNav('create-store')}
+        onOpenCreateStore={() => navigateCloudView('create-store')}
         onOpenCreateDroplet={() => {
           setInitialDropletImage('Ubuntu 24.04 LTS');
-          setActiveNav('create-droplet');
+          navigateCloudView('create-droplet');
         }}
         mobileOpen={mobileNavOpen}
         setMobileOpen={setMobileNavOpen}
@@ -403,10 +693,10 @@ export default function CloudDashboard({
           onUserUpdated={(updatedUser) => setProfileUser((prev) => ({ ...(prev || {}), ...updatedUser }))}
           onLogout={onLogout}
           onOpenStore={currentStore?.tiwiId ? () => launchStoreConsole(currentStore) : null}
-          onSwitchStore={() => setActiveNav('my-online-store')}
+          onSwitchStore={() => navigateCloudView('my-online-store')}
           onOpenCreateDroplet={() => {
             setInitialDropletImage('Ubuntu 24.04 LTS');
-            setActiveNav('create-droplet');
+            navigateCloudView('create-droplet');
           }}
           onOpenSettings={(tab) => {
             if (tab === 'billing') {
@@ -468,7 +758,7 @@ export default function CloudDashboard({
             <div className="max-w-[1000px] mx-auto space-y-5">
               <button
                 type="button"
-                onClick={() => setActiveNav('dashboard')}
+                onClick={() => navigateCloudView('dashboard')}
                 className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-3.5 py-2 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
               >
                 Back to Cloud Dashboard
@@ -478,15 +768,100 @@ export default function CloudDashboard({
                 onUserUpdated={setProfileUser}
               />
             </div>
+          ) : activeNav === 'droplet-detail' && selectedDropletId ? (
+            <div className="max-w-[1500px] mx-auto">
+              <DropletDetailView
+                dropletId={selectedDropletId}
+                initialDroplet={droplets.find((d) => String(d.id) === String(selectedDropletId)) || null}
+                activeSection={dropletSection}
+                onSectionChange={(nextSection) => openDropletDetail(selectedDropletId, nextSection)}
+                onBack={() => navigateCloudView('my-droplets')}
+                onDropletUpdated={(updated) => {
+                  if (!updated?.id) return;
+                  setDroplets((prev) =>
+                    prev.map((d) => (String(d.id) === String(updated.id) ? { ...d, ...updated } : d))
+                  );
+                }}
+                onDropletDeleted={(deletedId) => {
+                  setDroplets((prev) => prev.filter((d) => String(d.id) !== String(deletedId)));
+                  loadCloudData();
+                  navigateCloudView('my-droplets');
+                }}
+                onOpenBilling={(tab = 'overview') => {
+                  setBillingInitialTab(tab);
+                  navigateCloudView('billing');
+                }}
+                showToast={showToast}
+              />
+            </div>
+          ) : (activeNav === 'my-droplets' || activeNav === 'cloud/droplets') ? (
+            <div className="mx-auto max-w-7xl space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigateCloudView('dashboard')}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition cursor-pointer"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    <span>Overview</span>
+                  </button>
+                  <div>
+                    <h1 className="text-xl font-bold tracking-tight text-neutral-950 dark:text-white flex items-center gap-2">
+                      <Server className="h-5 w-5 text-[#1ED760]" />
+                      <span>My Droplets</span>
+                    </h1>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Click any VPS instance to inspect metrics, IPv6 networking, DNS bindings, firewall rules, and billing.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInitialDropletImage('Ubuntu 24.04 LTS');
+                    navigateCloudView('create-droplet');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#1ED760] hover:bg-[#18c254] px-3.5 py-2 text-xs font-bold text-black shadow-xs transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Create Droplet</span>
+                </button>
+              </div>
+              <DropletsTable
+                droplets={filteredDroplets}
+                showToast={showToast}
+                onOpenDroplet={(item, section = 'overview') => openDropletDetail(item, section)}
+                onToggleStatus={handleToggleDropletStatus}
+                onRenameDroplet={handleRenameDroplet}
+                onDeleteDroplet={handleDeleteDroplet}
+                onOpenCreateDroplet={() => {
+                  setInitialDropletImage('Ubuntu 24.04 LTS');
+                  navigateCloudView('create-droplet');
+                }}
+                onViewAll={() => navigateCloudView('my-droplets')}
+              />
+            </div>
           ) : activeNav === 'domains' ? (
             <div className="max-w-[1500px] mx-auto"><DomainsView currentUser={currentUser} showToast={showToast} /></div>
           ) : activeNav === 'create-droplet' ? (
             <div className="max-w-[1500px] mx-auto">
               <CreateDropletView
-                onBack={() => setActiveNav('dashboard')}
-                onDropletCreated={() => {
+                onBack={() => navigateCloudView('my-droplets')}
+                onDropletCreated={(createdPayload) => {
+                  const createdDroplet = createdPayload?.droplet || (createdPayload?.id ? createdPayload : null);
+                  if (createdDroplet?.id) {
+                    setDroplets((prev) => [
+                      createdDroplet,
+                      ...prev.filter((d) => String(d.id) !== String(createdDroplet.id)),
+                    ]);
+                  }
                   loadCloudData();
-                  setActiveNav('my-droplets');
+                  if (createdDroplet?.id) {
+                    openDropletDetail(createdDroplet.id, 'overview');
+                  } else {
+                    navigateCloudView('my-droplets');
+                  }
                 }}
                 showToast={showToast}
                 initialImage={initialDropletImage}
@@ -497,11 +872,11 @@ export default function CloudDashboard({
               <CreateStoreView
                 userId={userId}
                 userStores={userStores}
-                onBack={() => setActiveNav('my-online-store')}
+                onBack={() => navigateCloudView('my-online-store')}
                 onCreateStore={handleCreateStore}
                 onOpenBilling={(tab = 'credits') => {
                   setBillingInitialTab(tab);
-                  setActiveNav('billing');
+                  navigateCloudView(tab === 'credits' ? '/billing/credits' : 'billing');
                 }}
                 onOpenUpgrade={(store) => {
                   if (store?.tiwiId) {
@@ -519,9 +894,9 @@ export default function CloudDashboard({
               <ImagesView
                 onDeployImage={(img) => {
                   setInitialDropletImage(img);
-                  setActiveNav('create-droplet');
+                  navigateCloudView('create-droplet');
                 }}
-                onBack={() => setActiveNav('dashboard')}
+                onBack={() => navigateCloudView('dashboard')}
               />
             </div>
           ) : activeNav === 'snapshots' ? (
@@ -559,7 +934,7 @@ export default function CloudDashboard({
                 currentStore={currentStore}
                 onSelectStore={(st) => setCurrentStore(st)}
                 onOpenStoreDashboard={launchStoreConsole}
-                onOpenCreateStore={() => setActiveNav('create-store')}
+                onOpenCreateStore={() => navigateCloudView('create-store')}
                 onOpenBilling={(tab = 'overview') => {
                   setBillingInitialTab(tab);
                   setActiveNav('billing');
@@ -607,12 +982,7 @@ export default function CloudDashboard({
                 currentUser={currentUser}
                 initialSubRoute={activeNav.startsWith('help-support/') ? activeNav.replace('help-support/', '') : 'home'}
                 showToast={showToast}
-                onBackToDashboard={() => {
-                  setActiveNav('dashboard');
-                  try {
-                    window.history.pushState(null, '', '/');
-                  } catch (e) {}
-                }}
+                onBackToDashboard={() => navigateCloudView('dashboard')}
               />
             </div>
           ) : (activeNav === 'billing' || activeNav.startsWith('billing')) ? (
@@ -621,12 +991,7 @@ export default function CloudDashboard({
                 currentUser={currentUser}
                 initialTab={billingInitialTab}
                 showToast={showToast}
-                onBack={() => {
-                  setActiveNav('dashboard');
-                  try {
-                    window.history.pushState(null, '', '/');
-                  } catch (e) {}
-                }}
+                onBack={() => navigateCloudView('dashboard')}
               />
             </div>
           ) : (
@@ -718,39 +1083,26 @@ export default function CloudDashboard({
                 />
               ) : activeNav === 'workspace/operations' ? (
                 <WorkspaceOperationsView
-                  onBack={() => {
-                    setActiveNav('workspace-hub');
-                    try { window.history.pushState(null, '', '/workspace/hub'); } catch (e) {}
-                  }}
-                  onNavigate={(target) => {
-                    setActiveNav(target === 'workspace' ? 'workspace-hub' : target);
-                    try { window.history.pushState(null, '', `/${target === 'workspace' ? 'workspace/hub' : target}`); } catch (e) {}
-                  }}
+                  onBack={() => navigateCloudView('workspace-hub')}
+                  onNavigate={(target) => navigateCloudView(target === 'workspace' ? 'workspace-hub' : target)}
                 />
               ) : activeNav.startsWith('workspace/service/') ? (
                 <WorkspaceServiceDetailView
                   serviceId={activeNav.replace('workspace/service/', '')}
-                  onBack={() => {
-                    setActiveNav('workspace-hub');
-                    try { window.history.pushState(null, '', '/workspace/hub'); } catch (e) {}
-                  }}
+                  onBack={() => navigateCloudView('workspace-hub')}
                   onNavigate={(target) => {
                     if (target === 'discord') {
                       onNavigateTab?.(target);
                       return;
                     }
-                    setActiveNav(target === 'workspace' ? 'workspace-hub' : target);
-                    try { window.history.pushState(null, '', `/${target === 'workspace' ? 'workspace/hub' : target}`); } catch (e) {}
+                    navigateCloudView(target === 'workspace' ? 'workspace-hub' : target);
                   }}
                 />
               ) : (
                 <WorkspaceView
                   onOpenStoreDashboard={launchStoreConsole}
                   showToast={showToast}
-                  onNavigate={(target) => {
-                    setActiveNav(target === 'workspace' ? 'workspace-hub' : target);
-                    try { window.history.pushState(null, '', `/${target === 'workspace' ? 'workspace/hub' : target}`); } catch (e) {}
-                  }}
+                  onNavigate={(target) => navigateCloudView(target === 'workspace' ? 'workspace-hub' : target)}
                 />
               )}
             </div>
@@ -759,21 +1111,12 @@ export default function CloudDashboard({
               {activeNav.startsWith('marketplace/') ? (
                 <MarketplaceProductDetailView
                   productId={activeNav.replace('marketplace/', '')}
-                  onBack={() => {
-                    setActiveNav('marketplace');
-                    try { window.history.pushState(null, '', '/marketplace'); } catch (e) {}
-                  }}
-                  onNavigate={(target) => {
-                    setActiveNav(target);
-                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
-                  }}
+                  onBack={() => navigateCloudView('marketplace')}
+                  onNavigate={(target) => navigateCloudView(target)}
                 />
               ) : (
                 <MarketplaceView
-                  onNavigate={(target) => {
-                    setActiveNav(target);
-                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
-                  }}
+                  onNavigate={(target) => navigateCloudView(target)}
                 />
               )}
             </div>
@@ -801,9 +1144,8 @@ export default function CloudDashboard({
                 currentUser={profileUser || currentUser}
                 onCreateDroplet={() => {
                   setInitialDropletImage('Ubuntu 24.04 LTS');
-                  setActiveNav('create-droplet');
+                  navigateCloudView('create-droplet');
                 }}
-                onOpenTPanel={() => window.open('/tpanel', '_blank', 'noopener,noreferrer')}
               />
 
               {widgetOrder.map((widgetKey, wIdx) => {
@@ -894,6 +1236,31 @@ export default function CloudDashboard({
                             <div className="mt-1 text-[11px] text-neutral-500">View live GraphQL performance</div>
                           </button>
                         </div>
+                        {droplets.length > 0 && (
+                          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800/80">
+                            <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">
+                              Active VPS:
+                            </span>
+                            {droplets.slice(0, 5).map((d) => (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={() => openDropletDetail(d, 'overview')}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-800 hover:border-[#1ED760] hover:bg-[#1ED760]/10 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 transition cursor-pointer"
+                              >
+                                <span
+                                  className={`size-1.5 rounded-full ${
+                                    ['active', 'running'].includes(String(d.status || '').toLowerCase())
+                                      ? 'bg-[#1ED760]'
+                                      : 'bg-amber-500'
+                                  }`}
+                                />
+                                <span className="font-semibold">{d.name}</span>
+                                <span className="font-mono text-[10px] text-neutral-500">{d.ip || d.regionCode || ''}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -912,9 +1279,15 @@ export default function CloudDashboard({
                     return (
                       <DropletsTable
                         droplets={filteredDroplets}
+                        showToast={showToast}
+                        onOpenDroplet={(item, section = 'overview') => openDropletDetail(item, section)}
+                        onToggleStatus={handleToggleDropletStatus}
+                        onRenameDroplet={handleRenameDroplet}
+                        onDeleteDroplet={handleDeleteDroplet}
+                        onViewAll={() => navigateCloudView('my-droplets')}
                         onOpenCreateDroplet={() => {
                           setInitialDropletImage('Ubuntu 24.04 LTS');
-                          setActiveNav('create-droplet');
+                          navigateCloudView('create-droplet');
                         }}
                       />
                     );
@@ -926,7 +1299,7 @@ export default function CloudDashboard({
                           <CreateNewSection
                             onOpenCreateDroplet={() => {
                               setInitialDropletImage('Ubuntu 24.04 LTS');
-                              setActiveNav('create-droplet');
+                              navigateCloudView('create-droplet');
                             }}
                           />
                         </div>
@@ -942,21 +1315,21 @@ export default function CloudDashboard({
                             images={popularImages}
                             onDeployImage={(img) => {
                               if (!img) {
-                                setActiveNav('images');
+                                navigateCloudView('images');
                                 return;
                               }
                               setInitialDropletImage(img);
-                              setActiveNav('create-droplet');
+                              navigateCloudView('create-droplet');
                             }}
                           />
                         </div>
                         <div className="lg:col-span-1">
                           <QuickAccessCard
                             onSelectAction={(action) => {
-                              if (action === 'Droplets') setActiveNav('create-droplet');
-                              else if (action === 'Volumes') setActiveNav('volumes');
-                              else if (action === 'Kubernetes') setActiveNav('kubernetes');
-                              else if (action === 'Domains') setActiveNav('domains');
+                              if (action === 'Droplets') navigateCloudView('create-droplet');
+                              else if (action === 'Volumes') navigateCloudView('volumes');
+                              else if (action === 'Kubernetes') navigateCloudView('kubernetes');
+                              else if (action === 'Domains') navigateCloudView('domains');
                             }}
                           />
                         </div>

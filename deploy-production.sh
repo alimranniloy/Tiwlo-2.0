@@ -92,6 +92,24 @@ ensure_native_rust_environment() {
   fi
 }
 
+prune_docker_caches() {
+  if ! command -v docker >/dev/null 2>&1; then
+    return
+  fi
+  echo "--- Pruning stale Docker images, build cache, and exited containers (preserving volumes, PostgreSQL, /srv/tiwlo-tenants, and /srv/tiwlo-backups) ---"
+  # Never pass --volumes or touch active PostgreSQL, /srv/tiwlo-tenants, or /srv/tiwlo-backups
+  docker container prune -f || true
+  docker image prune -af --filter "until=24h" || true
+  docker builder prune -af --filter "until=24h" || true
+}
+
+clean_client_build_temp() {
+  if [[ -d "$ROOT_DIR/client" ]]; then
+    echo "--- Clearing stale client build temp folders ---"
+    rm -rf "$ROOT_DIR/client/.vite" || true
+  fi
+}
+
 # Load the shared, non-secret platform settings. Systemd/PM2 environment values
 # take precedence over this file.
 if [[ -f "$ROOT_DIR/.env" ]]; then
@@ -114,7 +132,8 @@ if [[ "$MODE" == "--docker" || "$MODE" == "docker" ]]; then
   fi
 
   if ! command -v docker >/dev/null 2>&1; then
-    apt-get update
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
     apt-get install -y docker.io docker-compose-plugin openssl
     systemctl enable --now docker
   fi
@@ -140,8 +159,10 @@ EOF
   if ! grep -q '^TIWLO_INTERNAL_IDENTITY_SECRET=' "$ENV_FILE"; then
     printf 'TIWLO_INTERNAL_IDENTITY_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
   fi
+  clean_client_build_temp
   cd "$ROOT_DIR"
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans --wait --wait-timeout 1200
+  prune_docker_caches
 
   echo "--- Provisioning host Postfix for Docker mail ---"
   ensure_node_dependencies "$ROOT_DIR/server" "--omit=dev"
@@ -234,6 +255,7 @@ chmod -R u+rwX "$ROOT_DIR/upload" "$ROOT_DIR/server/uploads" "$ROOT_DIR/server/d
 # 2b. Build Frontend Client
 echo "--- Step 2b: Building Production Frontend Client ---"
 if [[ -d "$ROOT_DIR/client" ]]; then
+  clean_client_build_temp
   ensure_node_dependencies "$ROOT_DIR/client"
   cd "$ROOT_DIR/client"
   npm run build
@@ -360,6 +382,8 @@ if [[ "$VERIFY_ROUTE_RESPONSE" != 401\ application/json* ]]; then
   exit 1
 fi
 echo "Verification API route is mounted and responding from the deployed backend."
+
+prune_docker_caches
 
 echo "=========================================================="
 echo "   DEPLOYMENT COMPLETED SUCCESSFULLY ON TIWLO LIVE SERVER!"

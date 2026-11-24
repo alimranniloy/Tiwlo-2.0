@@ -300,3 +300,57 @@ export async function migrateUbuntuTenantNode({ tenantId, targetNodeId } = {}) {
   );
   return formatTenantRow(rows[0] || null);
 }
+
+/**
+ * Reclaims a deleted droplet/tenant slot and frees its reserved storage quota back to the cluster pool.
+ */
+export async function reclaimUbuntuTenant({ tenantId, userId = null, systemAdmin = false } = {}) {
+  const cleanTenantId = String(tenantId || '').trim();
+  const cleanUserId = userId ? String(userId).trim() : '';
+  if (!cleanTenantId || (!cleanUserId && systemAdmin !== true)) return null;
+
+  if (!isPgActive()) {
+    const existing = inMemoryTenants.get(cleanTenantId);
+    if (!existing || (!systemAdmin && existing.userId !== cleanUserId)) return null;
+    inMemoryTenants.delete(cleanTenantId);
+    return existing;
+  }
+
+  await ensureUbuntuTenantSchema();
+  const params = [cleanTenantId];
+  const userFilter = systemAdmin ? '' : ` AND user_id = $2`;
+  if (!systemAdmin) params.push(cleanUserId);
+  const { rows } = await queryPg(
+    `DELETE FROM system_ubuntu_tenants WHERE id = $1${userFilter} RETURNING *`,
+    params
+  );
+  return formatTenantRow(rows[0] || null);
+}
+
+export async function updateUbuntuTenantStatus({ tenantId, status, userId = null, systemAdmin = false } = {}) {
+  const cleanTenantId = String(tenantId || '').trim();
+  const cleanStatus = String(status || '').trim().toLowerCase();
+  const cleanUserId = userId ? String(userId).trim() : '';
+  if (!cleanTenantId || (!cleanUserId && systemAdmin !== true) || !['active', 'stopped', 'suspended'].includes(cleanStatus)) return null;
+
+  if (!isPgActive()) {
+    const existing = inMemoryTenants.get(cleanTenantId);
+    if (!existing || (!systemAdmin && existing.userId !== cleanUserId)) return null;
+    const updated = { ...existing, status: cleanStatus, updatedAt: new Date().toISOString() };
+    inMemoryTenants.set(cleanTenantId, updated);
+    return updated;
+  }
+
+  await ensureUbuntuTenantSchema();
+  const params = [cleanTenantId, cleanStatus];
+  const userFilter = systemAdmin ? '' : ` AND user_id = $3`;
+  if (!systemAdmin) params.push(cleanUserId);
+  const { rows } = await queryPg(
+    `UPDATE system_ubuntu_tenants
+     SET status = $2, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1${userFilter}
+     RETURNING *`,
+    params
+  );
+  return formatTenantRow(rows[0] || null);
+}

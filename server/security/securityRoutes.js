@@ -22,6 +22,13 @@ import {
   recordViolation,
   ContentQueue
 } from './index.js';
+import { scanPayloadForMalwareOrWebShell } from './malwareGuardService.js';
+import {
+  SHIELD_CLEARANCE_COOKIE,
+  issueShieldChallenge,
+  verifyShieldChallengeSolution,
+  hasValidShieldClearance
+} from './smartTrafficShield.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -117,6 +124,22 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
   for (const file of req.files) {
     try {
       const buffer = fs.readFileSync(file.path);
+      const malwareCheck = scanPayloadForMalwareOrWebShell({
+        filename: file.originalname,
+        mimeType: file.mimetype,
+        buffer
+      });
+      if (!malwareCheck.clean) {
+        req.files.forEach((uploadedFile) => {
+          try { fs.unlinkSync(uploadedFile.path); } catch {}
+        });
+        await Promise.all(verifiedUrls.map((url) => deleteMedia(url).catch(() => {})));
+        return res.status(415).json({
+          error: 'MALICIOUS_FILE_BLOCKED',
+          findings: malwareCheck.findings,
+          message: 'Uploaded file was blocked by anti-malware and web-shell protection.'
+        });
+      }
       const scanResult = await scanAndSanitizeImage(buffer, purpose, file.originalname);
 
       if (scanResult.isVideo) {
@@ -415,6 +438,45 @@ router.get('/security/queue-stats', (req, res) => {
     queueLength: ContentQueue.queue.length,
     stats: ContentQueue.stats,
     memoryUsageMb: Math.round(process.memoryUsage().heapUsed / (1024 * 1024))
+  });
+});
+
+// ==========================================
+// GOOGLE-STYLE CHALLENGE-RESPONSE (ANTI-BOT & ANTI-AI CLEARANCE)
+// ==========================================
+router.get('/security/challenge/issue', (req, res) => {
+  const existing = hasValidShieldClearance(req);
+  if (existing.cleared) {
+    return res.json({ cleared: true, alreadyVerified: true });
+  }
+  const difficulty = req.query?.strict === '1' ? 5 : 4;
+  const challenge = issueShieldChallenge(req, {
+    reason: String(req.query?.reason || 'security_verification').slice(0, 64),
+    difficulty
+  });
+  return res.json({ cleared: false, challenge });
+});
+
+router.post('/security/challenge/verify', (req, res) => {
+  const { challengeToken, solution } = req.body || {};
+  const result = verifyShieldChallengeSolution(req, { challengeToken, solution });
+  if (!result.valid) {
+    return res.status(400).json({
+      success: false,
+      error: result.reason || 'Verification failed.'
+    });
+  }
+  res.cookie(SHIELD_CLEARANCE_COOKIE, result.clearanceCookieValue, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: req.secure || process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 30 * 60 * 1000
+  });
+  return res.json({
+    success: true,
+    verified: true,
+    clearanceExpiresAt: result.clearanceExpiresAt
   });
 });
 

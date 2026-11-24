@@ -28,14 +28,19 @@ if ! id -u "${LINUX_USER}" >/dev/null 2>&1; then
 fi
 
 mkdir -p "${TENANT_DIR}/app" "${TENANT_DIR}/storage" "${TENANT_DIR}/logs"
-chown -R "${LINUX_USER}:${LINUX_USER}" "${TENANT_DIR}"
+chown -hR "${LINUX_USER}:${LINUX_USER}" "${TENANT_DIR}"
 chmod 0700 "${TENANT_DIR}"
 
 docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 docker run -d \
   --name "${CONTAINER_NAME}" \
   --restart unless-stopped \
+  --user 33:33 \
+  --cap-drop=ALL \
+  --security-opt=no-new-privileges:true \
+  --pids-limit=256 \
   --memory "${RAM_MB}m" \
+  --memory-swap "${RAM_MB}m" \
   --cpus "${CPU_LIMIT}" \
   --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
@@ -44,5 +49,13 @@ docker run -d \
   -v "${TENANT_DIR}/storage:/srv/tenant/storage:rw" \
   -v "${TENANT_DIR}/logs:/srv/tenant/logs:rw" \
   "${SHARED_IMAGE}"
+
+# Block abusive outbound SMTP & crypto-mining pool ports at host firewall (zero legitimate web impact)
+if command -v iptables >/dev/null 2>&1; then
+  for PORT in 25 465 587 3333 4444 5555 7777 9999 14433 14444; do
+    iptables -C DOCKER-USER -p tcp --dport "${PORT}" -j DROP >/dev/null 2>&1 \
+      || iptables -I DOCKER-USER 1 -p tcp --dport "${PORT}" -j DROP >/dev/null 2>&1 || true
+  done
+fi
 
 echo "Provisioned isolated container ${CONTAINER_NAME} using shared image ${SHARED_IMAGE}."

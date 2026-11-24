@@ -5,7 +5,7 @@
  * neutral slate/zinc borders, crisp badges, and zero-emoji deliverability.
  */
 
-import { renderBaseEmail } from './baseTemplate.js';
+import { renderBaseEmail, sanitizeEmailUrl } from './baseTemplate.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
 
 function escapeHtml(value) {
@@ -53,7 +53,12 @@ export function renderSupportTicketEmail({
   const safeSender = escapeHtml(senderName);
   const safeMsg = escapeHtml(messageBody).replace(/\n/g, '<br>');
   const badge = formatBadgeColors(status);
-  const safeUrl = escapeHtml(portalUrl || `${getPlatformUrl('main')}/support?ref=${encodeURIComponent(ticketNumber || '')}`);
+  const safeUrl = escapeHtml(
+    sanitizeEmailUrl(
+      portalUrl || `${getPlatformUrl('main')}/support?ref=${encodeURIComponent(ticketNumber || '')}`,
+      `${getPlatformUrl('main')}/support`
+    )
+  );
 
   const headingByEvent = {
     created: `Reply - Tiwlo Support [Ticket #${safeRef}]`,

@@ -14,6 +14,7 @@ import nodemailer from 'nodemailer';
 import { isIPv4 } from 'node:net';
 import { PLATFORM_CONFIG, getPlatformUrl, getSubdomain } from '../config/platformConfig.js';
 import { listEmailDeliveries, recordEmailDelivery } from './securityPersistence.js';
+import { escapeEmailHtml, stripEmailHeaderCrlf } from '../email/baseTemplate.js';
 import {
   completeMfaLoginWithRust,
   completeMfaSetupWithRust,
@@ -115,10 +116,10 @@ export function getEmailConfig() {
 function buildHtmlEmail({ title, recipientEmail, mainMessage, otpCode, details, securityTip }) {
   let contentHtml = `
     <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 500; line-height: 28px; color: #202124; text-align: center;">
-      ${title || 'Tiwlo Notification'}
+      ${escapeEmailHtml(title || 'Tiwlo Notification')}
     </h1>
     <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 22px; color: #3c4043; text-align: center;">
-      ${mainMessage || ''}
+      ${escapeEmailHtml(mainMessage || '')}
     </p>
   `;
 
@@ -129,7 +130,7 @@ function buildHtmlEmail({ title, recipientEmail, mainMessage, otpCode, details, 
           <td align="center">
             <div style="display: inline-block; background-color: #f8f9fa; border: 1px solid #dadce0; border-radius: 8px; padding: 16px 32px; text-align: center;">
               <span class="code-display" style="font-family: 'Google Sans', Roboto, Consolas, monospace; font-size: 32px; font-weight: 500; letter-spacing: 6px; color: #1f1f1f; line-height: 1;">
-                ${otpCode}
+                ${escapeEmailHtml(otpCode)}
               </span>
             </div>
           </td>
@@ -146,8 +147,8 @@ function buildHtmlEmail({ title, recipientEmail, mainMessage, otpCode, details, 
             <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 13px; line-height: 22px;">
               ${details.map(d => `
                 <tr>
-                  <td style="padding: 3px 0; color: #70757a; width: 100px;">${d.label}</td>
-                  <td style="padding: 3px 0; color: #202124;">${d.value}</td>
+                  <td style="padding: 3px 0; color: #70757a; width: 100px;">${escapeEmailHtml(d.label)}</td>
+                  <td style="padding: 3px 0; color: #202124;">${escapeEmailHtml(d.value)}</td>
                 </tr>
               `).join('')}
             </table>
@@ -161,7 +162,7 @@ function buildHtmlEmail({ title, recipientEmail, mainMessage, otpCode, details, 
     contentHtml += `
       <div style="margin-top: 20px; padding: 16px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e8eaed;">
         <p style="margin: 0; font-size: 12px; line-height: 18px; color: #5f6368;">
-          ${securityTip}
+          ${escapeEmailHtml(securityTip)}
         </p>
       </div>
     `;
@@ -308,16 +309,17 @@ export async function sendTiwloEmail({
   metadata = {}
 }) {
   const config = getEmailConfig();
-  const cleanTo = (to || '').trim();
-  const cleanFromEmail = String(fromEmail || config.senderEmail).trim().toLowerCase();
-  const cleanReplyTo = String(replyTo || config.replyTo).trim().toLowerCase();
+  const cleanTo = stripEmailHeaderCrlf(to, 254);
+  const cleanSubject = stripEmailHeaderCrlf(subject || 'Tiwlo Notification', 250);
+  const cleanFromEmail = stripEmailHeaderCrlf(fromEmail || config.senderEmail, 254).toLowerCase();
+  const cleanReplyTo = stripEmailHeaderCrlf(replyTo || config.replyTo, 254).toLowerCase();
   const isUserMail = type === 'user_mail';
   const domainSuffix = `@${PLATFORM_CONFIG.primaryDomain}`;
   if (!cleanFromEmail.endsWith(domainSuffix) || !cleanReplyTo.endsWith(domainSuffix) ||
       !/^[^\s@]+@[^\s@]+$/.test(cleanFromEmail) || !/^[^\s@]+@[^\s@]+$/.test(cleanReplyTo)) {
     throw new TypeError('Email sender must be a valid address on the configured Tiwlo domain.');
   }
-  const cleanFromName = String(fromName || config.senderName).replace(/[\r\n"]/g, ' ').slice(0, 120);
+  const cleanFromName = stripEmailHeaderCrlf(fromName || config.senderName, 120).replace(/"/g, ' ');
 
   const mailOptions = {
     from: { name: cleanFromName, address: cleanFromEmail },
@@ -326,9 +328,9 @@ export async function sendTiwloEmail({
     ...(cc?.length ? { cc } : {}),
     ...(bcc?.length ? { bcc } : {}),
     ...(attachments?.length ? { attachments } : {}),
-    subject,
+    subject: cleanSubject,
     html,
-    text: text || subject,
+    text: text || cleanSubject,
     headers: {
       ...(!isUserMail ? config.antiSpam.headerHeaders : {}),
       'X-Tiwlo-Mail-Type': type,
@@ -599,15 +601,19 @@ export async function sendCloudPaymentCancelledEmail({
  * 6. Account Disabled Security Alert Email
  */
 export async function sendAccountDisabledEmail({ to, name, reason, restoreUrl }) {
-  const html = renderAccountDisabledEmail({ to, name, reason, restoreUrl });
+  // Keep user-facing ban email crisp and professional without exposing internal detection heuristics
+  const publicReason = /illegal|abuse|spam|fraud|miner|weapon|nsfw|policy/i.test(String(reason || ''))
+    ? 'Illegal activity / Terms of Service policy violation'
+    : 'Terms of Service policy violation';
+  const html = renderAccountDisabledEmail({ to, name, reason: publicReason, restoreUrl });
 
   return sendTiwloEmail({
     to,
-    subject: 'Your Tiwlo Account is disabled',
+    subject: 'Your Tiwlo Account has been banned',
     html,
-    text: `Your Tiwlo Account has been disabled due to a policy violation: ${reason || 'Terms of Service violation'}. Visit ${restoreUrl || getPlatformUrl('account-disabled')} to request a review.`,
+    text: `Your Tiwlo Account has been banned (${publicReason}). Visit ${restoreUrl || getPlatformUrl('account-disabled')} if you believe this is an error.`,
     type: 'account_disabled',
-    metadata: { recipientName: name, reason, restoreUrl }
+    metadata: { recipientName: name, publicReason, restoreUrl }
   });
 }
 

@@ -1,19 +1,27 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { requestSensitiveActionGrant } from '../security/reauth.js';
+import { sanitizeHttpUrl } from '../utils/safeHtml.js';
 import {
   Activity,
+  AlertTriangle,
   ArrowLeft,
   BookOpen,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
   CloudOff,
+  Copy,
   Cpu,
   Database,
   FileSpreadsheet,
+  Globe,
   HardDrive,
   History,
+  KeyRound,
+  Lock,
   MemoryStick,
   Pencil,
   Plus,
@@ -21,6 +29,7 @@ import {
   RefreshCw,
   Search,
   Server,
+  Sparkles,
   Terminal,
   Trash2,
   Wifi,
@@ -33,28 +42,37 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
   : '/api';
 const API_ORIGIN = API_BASE.replace(/\/api\/?$/, '') || window.location.origin;
 
-const PANEL_TYPES = [
-  { id: 'tiwlo_panel', label: 'Tiwlo Panel', defaultPort: 8443 },
-  { id: 'cpanel_whm', label: 'cPanel / WHM', defaultPort: 2087 },
-  { id: 'kvm', label: 'KVM Hypervisor / Droplet', defaultPort: 22 },
-  { id: 'plesk', label: 'Plesk Obsidian', defaultPort: 8443 },
-  { id: 'directadmin', label: 'DirectAdmin', defaultPort: 2222 },
-  { id: 'custom', label: 'Custom / Dedicated', defaultPort: 443 },
-];
+const PANEL_LABELS = {
+  ubuntu_node: 'Ubuntu Cluster Node',
+  tiwlo_panel: 'Tiwlo Panel',
+  cpanel_whm: 'cPanel / WHM',
+  kvm_hypervisor: 'KVM Hypervisor',
+  plesk: 'Plesk Obsidian',
+  directadmin: 'DirectAdmin',
+  docker_swarm: 'Docker Swarm',
+  kubernetes_node: 'Kubernetes Node',
+  custom_panel: 'Custom / Dedicated',
+};
+
+const FILTER_PANEL_TYPES = Object.entries(PANEL_LABELS).map(([id, label]) => ({ id, label }));
 
 const EMPTY_NODE_FORM = {
   name: '',
-  host: '',
-  ip: '',
-  port: 8443,
-  panelType: 'tiwlo_panel',
+  hostname: '',
+  ipAddress: '',
+  ipv6Address: '',
+  sshPort: 22,
+  sshUser: 'root',
+  sshPassword: '',
+  sshPrivateKey: '',
+  apiPort: 9443,
   panelUrl: '',
-  authToken: '',
-  region: 'ap-south-1',
+  bearerToken: '',
+  region: 'sgp1',
   cpuCores: 4,
   ramGb: 16,
-  diskGb: 200,
-  maxCapacity: 250,
+  storageGb: 200,
+  maxDroplets: 100,
 };
 
 function formatBytes(bytes) {
@@ -86,6 +104,20 @@ function getNodeStatusBadge(status) {
       Icon: Wifi,
     };
   }
+  if (s === 'degraded') {
+    return {
+      label: 'degraded',
+      cls: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+      Icon: AlertTriangle,
+    };
+  }
+  if (s === 'maintenance') {
+    return {
+      label: 'maintenance',
+      cls: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+      Icon: Clock,
+    };
+  }
   if (['offline', 'unreachable', 'error', 'down'].includes(s)) {
     return {
       label: status || 'offline',
@@ -94,10 +126,28 @@ function getNodeStatusBadge(status) {
     };
   }
   return {
-    label: status || 'unprobed',
+    label: status || 'unknown',
     cls: 'border-neutral-200 bg-neutral-100 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
     Icon: Radio,
   };
+}
+
+function normalizeBulkRow(raw = {}) {
+  const mapped = { ...raw };
+  if (!mapped.hostname && mapped.host) mapped.hostname = mapped.host;
+  if (!mapped.ipAddress && mapped.ip) mapped.ipAddress = mapped.ip;
+  if (mapped.apiPort == null && mapped.port != null) mapped.apiPort = mapped.port;
+  if (mapped.storageGb == null && mapped.diskGb != null) mapped.storageGb = mapped.diskGb;
+  if (mapped.maxDroplets == null && mapped.maxCapacity != null) mapped.maxDroplets = mapped.maxCapacity;
+  if (!mapped.bearerToken && mapped.authToken) mapped.bearerToken = mapped.authToken;
+  if (!mapped.panelType) mapped.panelType = 'ubuntu_node';
+  delete mapped.host;
+  delete mapped.ip;
+  delete mapped.port;
+  delete mapped.diskGb;
+  delete mapped.maxCapacity;
+  delete mapped.authToken;
+  return mapped;
 }
 
 function parseBulkServerInput(rawText) {
@@ -105,15 +155,21 @@ function parseBulkServerInput(rawText) {
   if (!trimmed) return [];
   if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
     const parsed = JSON.parse(trimmed);
-    return Array.isArray(parsed) ? parsed : [parsed];
+    const list = Array.isArray(parsed) ? parsed : [parsed];
+    return list.map(normalizeBulkRow);
   }
   const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length === 0) return [];
   const firstCols = lines[0].split(',').map((c) => c.trim().toLowerCase());
-  const hasHeader = firstCols.includes('host') || firstCols.includes('ip') || firstCols.includes('name');
+  const hasHeader =
+    firstCols.includes('hostname') ||
+    firstCols.includes('host') ||
+    firstCols.includes('ipaddress') ||
+    firstCols.includes('ip') ||
+    firstCols.includes('name');
   const headers = hasHeader
     ? lines[0].split(',').map((c) => c.trim())
-    : ['name', 'host', 'ip', 'port', 'panelType', 'panelUrl', 'region', 'cpuCores', 'ramGb', 'diskGb', 'maxCapacity', 'authToken'];
+    : ['name', 'hostname', 'ipAddress', 'apiPort', 'sshPort', 'region', 'cpuCores', 'ramGb', 'storageGb', 'maxDroplets', 'bearerToken'];
   const dataLines = hasHeader ? lines.slice(1) : lines;
 
   return dataLines.map((line) => {
@@ -121,7 +177,7 @@ function parseBulkServerInput(rawText) {
     const obj = {};
     headers.forEach((h, i) => {
       if (cols[i] !== undefined && cols[i] !== '') {
-        if (['port', 'cpuCores', 'ramGb', 'diskGb', 'maxCapacity'].includes(h)) {
+        if (['port', 'apiPort', 'sshPort', 'cpuCores', 'ramGb', 'diskGb', 'storageGb', 'maxCapacity', 'maxDroplets'].includes(h)) {
           const num = Number(cols[i]);
           if (Number.isFinite(num)) obj[h] = num;
         } else {
@@ -129,7 +185,7 @@ function parseBulkServerInput(rawText) {
         }
       }
     });
-    return obj;
+    return normalizeBulkRow(obj);
   });
 }
 
@@ -141,12 +197,16 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
   const [telemetryLoading, setTelemetryLoading] = useState(true);
   const [telemetryError, setTelemetryError] = useState('');
 
-  // Fleet state
+  // Fleet & Live Cluster state
   const [nodes, setNodes] = useState([]);
   const [fleetTotal, setFleetTotal] = useState(0);
   const [fleetPage, setFleetPage] = useState(1);
   const [fleetPageSize, setFleetPageSize] = useState(25);
   const [fleetSummary, setFleetSummary] = useState(null);
+  const [liveStatus, setLiveStatus] = useState(null);
+  const [backupEnabled, setBackupEnabled] = useState(false);
+  const [backupUpdating, setBackupUpdating] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [fleetSearch, setFleetSearch] = useState('');
   const [panelFilter, setPanelFilter] = useState('');
   const [regionFilter, setRegionFilter] = useState('');
@@ -154,10 +214,11 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
   const [fleetLoading, setFleetLoading] = useState(true);
   const [fleetError, setFleetError] = useState('');
 
-  // Modals / Drawers
+  // Modals / Drawers / Interactive UI state
   const [nodeModalOpen, setNodeModalOpen] = useState(false);
   const [editingNode, setEditingNode] = useState(null);
   const [nodeForm, setNodeForm] = useState(EMPTY_NODE_FORM);
+  const [showAdvancedFields, setShowAdvancedFields] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
   const [logsDrawerNode, setLogsDrawerNode] = useState(null);
@@ -166,6 +227,7 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
   const [probingId, setProbingId] = useState('');
   const [batchProbing, setBatchProbing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [copiedIp, setCopiedIp] = useState('');
 
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -181,13 +243,61 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
     const headers = { ...getHeaders(), ...(options.headers || {}) };
     let res = await fetch(url, { credentials: 'include', ...options, headers });
     let json = await res.json().catch(() => ({}));
-    if (res.status === 403 && (json.reauthRequired || /reauth|verification|grant/i.test(json.error || ''))) {
+    const needsReauth =
+      (res.status === 403 || res.status === 428) &&
+      (json.reauthRequired ||
+        json.error === 'RECENT_VERIFICATION_REQUIRED' ||
+        /reauth|verification|grant/i.test(json.error || json.message || ''));
+    if (needsReauth) {
       headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(headers, API_ORIGIN);
       res = await fetch(url, { credentials: 'include', ...options, headers });
       json = await res.json().catch(() => ({}));
     }
     return { res, json };
   }, [getHeaders]);
+
+  const fetchLiveStatus = useCallback(async () => {
+    const token = localStorage.getItem('stockpro_session');
+    const res = await fetch(`${API_BASE}/admin/fleet/live-status`, {
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error || `Live status unavailable (${res.status}).`);
+    }
+    setLiveStatus(data);
+    if (typeof data?.automation?.backupEnabled === 'boolean') {
+      setBackupEnabled(data.automation.backupEnabled);
+    }
+    setLastSyncedAt(new Date().toISOString());
+    return data;
+  }, []);
+
+  const fetchFleetNodes = useCallback(async () => {
+    const token = localStorage.getItem('stockpro_session');
+    const params = new URLSearchParams({
+      page: String(fleetPage),
+      pageSize: String(fleetPageSize),
+      q: fleetSearch.trim(),
+      panelType: panelFilter,
+      region: regionFilter.trim(),
+      status: statusFilter,
+    });
+    const res = await fetch(`${API_BASE}/admin/fleet/nodes?${params.toString()}`, {
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error || `Fleet API unavailable (${res.status}).`);
+    }
+    setNodes(Array.isArray(data.nodes) ? data.nodes : []);
+    setFleetTotal(Number(data.pagination?.total ?? data.total ?? 0));
+    setFleetSummary(data.summary || null);
+    setFleetError('');
+    return data;
+  }, [fleetPage, fleetPageSize, fleetSearch, panelFilter, regionFilter, statusFilter]);
 
   // Load Host Telemetry (/api/admin/servers)
   useEffect(() => {
@@ -219,46 +329,41 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
     };
   }, [reloadTick]);
 
-  // Load Fleet Nodes (/api/admin/fleet/nodes)
+  // Load Fleet Nodes & Live Status on mount / filter / reloadTick
   useEffect(() => {
     let active = true;
-    const loadFleet = async () => {
+    const loadAll = async () => {
       try {
-        const token = localStorage.getItem('stockpro_session');
-        const params = new URLSearchParams({
-          page: String(fleetPage),
-          pageSize: String(fleetPageSize),
-          q: fleetSearch.trim(),
-          panelType: panelFilter,
-          region: regionFilter.trim(),
-          status: statusFilter,
-        });
-        const res = await fetch(`${API_BASE}/admin/fleet/nodes?${params.toString()}`, {
-          credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || data.success === false) {
-          throw new Error(data.error || `Fleet API unavailable (${res.status}).`);
+        const [nodesRes, liveRes] = await Promise.allSettled([
+          fetchFleetNodes(),
+          fetchLiveStatus(),
+        ]);
+        if (!active) return;
+        if (nodesRes.status === 'rejected') {
+          setNodes([]);
+          setFleetError(nodesRes.reason?.message || 'Fleet nodes could not be loaded.');
         }
-        if (!active) return;
-        setNodes(Array.isArray(data.nodes) ? data.nodes : []);
-        setFleetTotal(Number(data.total || 0));
-        setFleetSummary(data.summary || null);
-        setFleetError('');
-      } catch (err) {
-        if (!active) return;
-        setNodes([]);
-        setFleetError(err.message || 'Fleet nodes could not be loaded.');
+        if (liveRes.status === 'rejected' && nodesRes.status === 'rejected') {
+          setFleetError(liveRes.reason?.message || 'Fleet live status unavailable.');
+        }
       } finally {
         if (active) setFleetLoading(false);
       }
     };
-    loadFleet();
+    loadAll();
     return () => {
       active = false;
     };
-  }, [fleetPage, fleetPageSize, fleetSearch, panelFilter, regionFilter, statusFilter, reloadTick]);
+  }, [fetchFleetNodes, fetchLiveStatus, reloadTick]);
+
+  // 15-second live auto-refresh for cluster status and node table
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchLiveStatus().catch(() => {});
+      fetchFleetNodes().catch(() => {});
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [fetchLiveStatus, fetchFleetNodes]);
 
   const handleRefreshAll = () => {
     setTelemetryLoading(true);
@@ -266,9 +371,64 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
     setReloadTick((t) => t + 1);
   };
 
+  const handleToggleBackup = async () => {
+    if (backupUpdating) return;
+    const nextValue = !backupEnabled;
+    try {
+      setBackupUpdating(true);
+      const { res, json } = await fetchWithOptionalReauth(`${API_BASE}/admin/fleet/automation`, {
+        method: 'PATCH',
+        body: JSON.stringify({ backupEnabled: nextValue }),
+      });
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || json.message || 'Failed to update backup setting.');
+      }
+      const confirmed =
+        typeof json?.automation?.backupEnabled === 'boolean'
+          ? json.automation.backupEnabled
+          : nextValue;
+      setBackupEnabled(confirmed);
+      setLiveStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              automation: {
+                ...(prev.automation || {}),
+                ...(json.automation || {}),
+                backupEnabled: confirmed,
+              },
+            }
+          : prev
+      );
+      showToast?.(
+        confirmed
+          ? 'Cluster Backups activated.'
+          : 'Cluster Backups turned off (saving storage).',
+        'success'
+      );
+    } catch (err) {
+      showToast?.(err.message || 'Could not toggle cluster backups.', 'error');
+    } finally {
+      setBackupUpdating(false);
+    }
+  };
+
+  const handleCopyAddress = async (addr) => {
+    if (!addr) return;
+    try {
+      await navigator.clipboard?.writeText(addr);
+      setCopiedIp(addr);
+      showToast?.(`Copied ${addr}`, 'success');
+      setTimeout(() => setCopiedIp((cur) => (cur === addr ? '' : cur)), 1600);
+    } catch {
+      showToast?.(`Address: ${addr}`, 'info');
+    }
+  };
+
   const openAddNodeModal = () => {
     setEditingNode(null);
     setNodeForm(EMPTY_NODE_FORM);
+    setShowAdvancedFields(false);
     setNodeModalOpen(true);
   };
 
@@ -276,36 +436,98 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
     setEditingNode(node);
     setNodeForm({
       name: node.name || '',
-      host: node.host || '',
-      ip: node.ip || '',
-      port: node.port ?? 8443,
-      panelType: node.panelType || 'tiwlo_panel',
+      hostname: node.hostname || '',
+      ipAddress: node.ipAddress || '',
+      ipv6Address: node.ipv6Address || '',
+      sshPort: node.sshPort ?? 22,
+      sshUser: 'root',
+      sshPassword: '',
+      sshPrivateKey: '',
+      apiPort: node.apiPort ?? 9443,
       panelUrl: node.panelUrl || '',
-      authToken: '',
-      region: node.region || '',
+      bearerToken: '',
+      region: node.region || 'sgp1',
       cpuCores: node.cpuCores ?? 4,
       ramGb: node.ramGb ?? 16,
-      diskGb: node.diskGb ?? 200,
-      maxCapacity: node.maxCapacity ?? 250,
+      storageGb: node.storageGb ?? 200,
+      maxDroplets: node.maxDroplets ?? 100,
     });
+    setShowAdvancedFields(true);
     setNodeModalOpen(true);
   };
+
+  const isSshAutoLinkMode =
+    !editingNode &&
+    Boolean(nodeForm.sshPassword.trim() || nodeForm.sshPrivateKey.trim());
 
   const handleSaveNode = async (e) => {
     e.preventDefault();
     try {
+      const cleanIp = nodeForm.ipAddress.trim();
+      if (!cleanIp) {
+        showToast?.('IP Address is required.', 'error');
+        return;
+      }
+
       setSaving(true);
+
+      if (isSshAutoLinkMode) {
+        const sshPayload = {
+          ...(nodeForm.name.trim() ? { name: nodeForm.name.trim() } : {}),
+          ...(nodeForm.hostname.trim() ? { hostname: nodeForm.hostname.trim() } : {}),
+          ipAddress: cleanIp,
+          sshPort: Number(nodeForm.sshPort || 22),
+          sshUser: nodeForm.sshUser.trim() || 'root',
+          ...(nodeForm.sshPassword.trim() ? { sshPassword: nodeForm.sshPassword } : {}),
+          ...(nodeForm.sshPrivateKey.trim() ? { sshPrivateKey: nodeForm.sshPrivateKey.trim() } : {}),
+          apiPort: Number(nodeForm.apiPort || 9443),
+          region: nodeForm.region.trim() || 'sgp1',
+          installAgent: true,
+        };
+        const { res, json } = await fetchWithOptionalReauth(`${API_BASE}/admin/fleet/nodes/link-ssh`, {
+          method: 'POST',
+          body: JSON.stringify(sshPayload),
+        });
+        if (!res.ok || json.success === false) {
+          throw new Error(json.error || json.message || 'SSH auto-link onboarding failed.');
+        }
+        const linked = json.node || {};
+        const tel = json.telemetry || {};
+        showToast?.(
+          `Auto-linked ${linked.name || cleanIp} (${tel.cpuCores ?? linked.cpuCores ?? '?'} vCPU, ${tel.ramGb ?? linked.ramGb ?? '?'} GB RAM, ${tel.storageGb ?? linked.storageGb ?? '?'} GB Disk) — Online`,
+          'success'
+        );
+        setNodeModalOpen(false);
+        handleRefreshAll();
+        return;
+      }
+
+      const cleanName = nodeForm.name.trim();
+      const cleanHost = nodeForm.hostname.trim();
+      if (!cleanName || !cleanHost) {
+        showToast?.(
+          'Hostname and Node Name are required for manual registration (or provide SSH Password / Private Key to auto-discover).',
+          'error'
+        );
+        return;
+      }
+
       const payload = {
-        ...nodeForm,
-        port: Number(nodeForm.port || 8443),
+        name: cleanName,
+        hostname: cleanHost,
+        ipAddress: cleanIp,
+        ...(nodeForm.ipv6Address.trim() ? { ipv6Address: nodeForm.ipv6Address.trim() } : {}),
+        panelType: editingNode ? (editingNode.panelType || 'ubuntu_node') : 'ubuntu_node',
+        apiPort: Number(nodeForm.apiPort || 9443),
+        sshPort: Number(nodeForm.sshPort || 22),
+        panelUrl: nodeForm.panelUrl.trim() || null,
+        region: nodeForm.region.trim() || 'sgp1',
         cpuCores: Number(nodeForm.cpuCores || 1),
         ramGb: Number(nodeForm.ramGb || 1),
-        diskGb: Number(nodeForm.diskGb || 10),
-        maxCapacity: Number(nodeForm.maxCapacity || 100),
+        storageGb: Number(nodeForm.storageGb || 10),
+        maxDroplets: Number(nodeForm.maxDroplets || 100),
+        ...(nodeForm.bearerToken.trim() ? { bearerToken: nodeForm.bearerToken.trim() } : {}),
       };
-      if (editingNode && !payload.authToken) {
-        delete payload.authToken;
-      }
 
       const url = editingNode
         ? `${API_BASE}/admin/fleet/nodes/${encodeURIComponent(editingNode.id)}`
@@ -317,9 +539,9 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
         body: JSON.stringify(payload),
       });
       if (!res.ok || json.success === false) {
-        throw new Error(json.error || 'Could not save server node.');
+        throw new Error(json.error || json.message || 'Could not save server node.');
       }
-      showToast?.(editingNode ? 'Server node updated.' : 'Server node added to fleet.', 'success');
+      showToast?.(editingNode ? 'Server node updated.' : 'Server node added to cluster fleet.', 'success');
       setNodeModalOpen(false);
       handleRefreshAll();
     } catch (err) {
@@ -330,6 +552,10 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
   };
 
   const handleDeleteNode = async (node) => {
+    if (node.isPrimary || node.id === 'primary-ubuntu-node') {
+      showToast?.('Primary Cluster Master Host is locked and cannot be deleted.', 'error');
+      return;
+    }
     try {
       setSaving(true);
       const { res, json } = await fetchWithOptionalReauth(
@@ -337,9 +563,9 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
         { method: 'DELETE' }
       );
       if (!res.ok || json.success === false) {
-        throw new Error(json.error || 'Failed to delete server node.');
+        throw new Error(json.error || json.message || 'Failed to delete server node.');
       }
-      showToast?.(`Removed ${node.name || node.host} from fleet.`, 'success');
+      showToast?.(`Removed ${node.name || node.hostname} from fleet.`, 'success');
       handleRefreshAll();
     } catch (err) {
       showToast?.(err.message || 'Delete failed.', 'error');
@@ -362,9 +588,9 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
         body: JSON.stringify({ nodes: parsedNodes }),
       });
       if (!res.ok || json.success === false) {
-        throw new Error(json.error || 'Bulk import failed.');
+        throw new Error(json.error || json.message || 'Bulk import failed.');
       }
-      showToast?.(`Imported ${json.importedCount ?? json.count ?? parsedNodes.length} server nodes.`, 'success');
+      showToast?.(`Imported ${json.imported ?? json.importedCount ?? json.count ?? parsedNodes.length} server nodes.`, 'success');
       setBulkModalOpen(false);
       setBulkInput('');
       handleRefreshAll();
@@ -383,27 +609,32 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
         { method: 'POST', body: '{}' }
       );
       if (!res.ok || json.success === false) {
-        throw new Error(json.error || 'Probe failed.');
+        throw new Error(json.error || json.message || 'Probe failed.');
       }
-      const updated = json.node || json;
+      const updated = json.node || {};
+      const probe = json.probe || {};
+      const nextStatus = updated.status || probe.status || node.status;
+      const nextLatency = updated.lastLatencyMs ?? probe.latencyMs ?? node.lastLatencyMs;
+      const nextError = updated.lastProbeError ?? probe.errorMessage ?? null;
+
       setNodes((prev) =>
         prev.map((n) =>
           n.id === node.id
             ? {
                 ...n,
-                status: updated.status || n.status,
-                latencyMs: updated.latencyMs ?? json.latencyMs ?? n.latencyMs,
-                lastError: updated.lastError ?? json.error ?? null,
-                lastProbedAt: updated.lastProbedAt || new Date().toISOString(),
+                ...updated,
+                status: nextStatus,
+                lastLatencyMs: nextLatency,
+                lastProbeError: nextError,
+                lastHeartbeatAt: updated.lastHeartbeatAt || new Date().toISOString(),
               }
             : n
         )
       );
+      fetchLiveStatus().catch(() => {});
       showToast?.(
-        `Probe ${node.name || node.host}: ${updated.status || 'checked'}${
-          updated.latencyMs != null ? ` (${updated.latencyMs} ms)` : ''
-        }`,
-        updated.status === 'offline' ? 'error' : 'success'
+        `Probe ${node.name || node.hostname}: ${nextStatus}${nextLatency != null ? ` (${nextLatency} ms)` : ''}`,
+        nextStatus === 'offline' ? 'error' : 'success'
       );
     } catch (err) {
       showToast?.(err.message || 'Connectivity probe failed.', 'error');
@@ -422,7 +653,7 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
         body: JSON.stringify({ nodeIds: ids }),
       });
       if (!res.ok || json.success === false) {
-        throw new Error(json.error || 'Batch probe failed.');
+        throw new Error(json.error || json.message || 'Batch probe failed.');
       }
       showToast?.(`Probed ${ids.length} server nodes on current page.`, 'success');
       handleRefreshAll();
@@ -486,12 +717,31 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
   const mediaSize = media.usedFormatted || formatBytes(media.usedBytes ?? media.bytes) || media.sizeFormatted || null;
   const mediaFiles = media.fileCount ?? media.files ?? null;
 
+  // Cluster summary & automation metrics
+  const summary = fleetSummary || liveStatus?.summary || {};
+  const automation = liveStatus?.automation || {};
+  const activeAlerts = Array.isArray(automation.activeAlerts) ? automation.activeAlerts : [];
+
+  const totalNodesCount = summary.total ?? fleetTotal;
+  const onlineNodesCount = summary.online ?? nodes.filter((n) => n.status === 'online').length;
+  const offlineNodesCount = summary.offline ?? nodes.filter((n) => n.status === 'offline').length;
+  const totalCpuCores = summary.totalCpuCores ?? nodes.reduce((acc, n) => acc + Number(n.cpuCores || 0), 0);
+  const onlineCpuCores = summary.onlineCpuCores ?? nodes.filter((n) => n.status === 'online' || n.status === 'degraded').reduce((acc, n) => acc + Number(n.cpuCores || 0), 0);
+  const totalRamGb = summary.totalRamGb ?? nodes.reduce((acc, n) => acc + Number(n.ramGb || 0), 0);
+  const onlineRamGb = summary.onlineRamGb ?? nodes.filter((n) => n.status === 'online' || n.status === 'degraded').reduce((acc, n) => acc + Number(n.ramGb || 0), 0);
+  const totalStorageGb = summary.totalStorageGb ?? nodes.reduce((acc, n) => acc + Number(n.storageGb || 0), 0);
+  const totalStorageUsedGb = summary.totalStorageUsedGb ?? 0;
+  const totalStorageFreeGb = summary.totalStorageFreeGb ?? totalStorageGb;
+  const clusterStoragePct = totalStorageGb > 0
+    ? Math.min(100, Math.max(0, Math.round((Number(totalStorageUsedGb) / Number(totalStorageGb)) * 100)))
+    : 0;
+
   const totalPages = Math.max(1, Math.ceil(fleetTotal / fleetPageSize));
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 sm:flex-row sm:items-center">
+      {/* Header & Top Control Bar */}
+      <div className="flex flex-col justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 lg:flex-row lg:items-center">
         <div>
           <button
             type="button"
@@ -502,14 +752,48 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
             Back to Dashboard
           </button>
           <h1 className="text-xl font-semibold tracking-tight text-neutral-950 dark:text-white">
-            Servers, Control Panel Fleet &amp; Host Telemetry
+            Server &amp; System Status
           </h1>
           <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-            Manage thousands of Tiwlo Panel, cPanel/WHM, KVM, Plesk, and DirectAdmin nodes alongside live host telemetry.
+            Autonomous multi-server hardware pool, one-click SSH node onboarding, failover engine, and live host telemetry.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Cluster Backup Toggle Switch */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={backupEnabled}
+            disabled={backupUpdating}
+            onClick={handleToggleBackup}
+            title="Toggle automated cluster-wide backups (requires security verification)"
+            className={`inline-flex h-9 items-center gap-2.5 rounded-xl border px-3 text-xs font-semibold transition disabled:opacity-60 ${
+              backupEnabled
+                ? 'border-[#1ED760]/40 bg-[#1ED760]/15 text-emerald-800 dark:text-[#1ED760]'
+                : 'border-neutral-200/80 bg-neutral-50 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800'
+            }`}
+          >
+            <span
+              className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                backupEnabled ? 'bg-[#1ED760]' : 'bg-neutral-300 dark:bg-neutral-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+                  backupEnabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                }`}
+              />
+            </span>
+            <span>
+              {backupUpdating
+                ? 'Updating Backups...'
+                : backupEnabled
+                  ? 'Cluster Backups: Active'
+                  : 'Cluster Backups: Off (Saving Storage)'}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={handleRefreshAll}
@@ -541,9 +825,9 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
       {/* Tabs */}
       <div className="inline-flex flex-wrap rounded-xl border border-neutral-200/80 bg-white p-1 dark:border-neutral-800 dark:bg-neutral-950">
         {[
-          { id: 'fleet', label: `Server Fleet (${fleetTotal})`, icon: Server },
+          { id: 'fleet', label: `Cluster Fleet (${fleetTotal})`, icon: Server },
           { id: 'telemetry', label: 'Host & DB Telemetry', icon: Activity },
-          { id: 'guide', label: 'Panel Connectivity Guide', icon: BookOpen },
+          { id: 'guide', label: 'Auto-Link & Cluster Guide', icon: BookOpen },
         ].map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -568,33 +852,154 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
       {/* Fleet Tab */}
       {activeTab === 'fleet' && (
         <div className="space-y-4">
-          {/* Fleet Summary Strip */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {/* Cluster Hardware Pool Summary Strip */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-              <span className="text-xs font-medium text-neutral-500">Registered Nodes</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-neutral-500">Connected Servers</span>
+                <Server className="h-4 w-4 text-[#1ED760]" />
+              </div>
               <p className="mt-1.5 text-2xl font-semibold tabular-nums text-neutral-950 dark:text-white">
-                {fleetSummary?.total ?? fleetTotal}
+                {onlineNodesCount}{' '}
+                <span className="text-sm font-normal text-neutral-400">/ {totalNodesCount}</span>
+              </p>
+              <p className="mt-1 text-[11px] tabular-nums text-neutral-500">
+                {offlineNodesCount > 0 ? (
+                  <span className="font-medium text-rose-600 dark:text-rose-400">
+                    {offlineNodesCount} offline
+                  </span>
+                ) : (
+                  <span className="text-emerald-700 dark:text-[#1ED760]">All nodes healthy</span>
+                )}
+                {summary.avgLatencyMs != null ? ` · ${summary.avgLatencyMs} ms avg` : ''}
               </p>
             </div>
+
             <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-              <span className="text-xs font-medium text-neutral-500">Online / Reachable</span>
-              <p className="mt-1.5 text-2xl font-semibold tabular-nums text-emerald-700 dark:text-[#1ED760]">
-                {fleetSummary?.online ?? nodes.filter((n) => n.status === 'online').length}
-              </p>
-            </div>
-            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-              <span className="text-xs font-medium text-neutral-500">Offline / Error</span>
-              <p className="mt-1.5 text-2xl font-semibold tabular-nums text-rose-600 dark:text-rose-400">
-                {fleetSummary?.offline ?? nodes.filter((n) => n.status === 'offline').length}
-              </p>
-            </div>
-            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-              <span className="text-xs font-medium text-neutral-500">Total Tenant Capacity</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-neutral-500">Total Cluster CPU Cores</span>
+                <Cpu className="h-4 w-4 text-neutral-400" />
+              </div>
               <p className="mt-1.5 text-2xl font-semibold tabular-nums text-neutral-950 dark:text-white">
-                {fleetSummary?.totalCapacity ??
-                  nodes.reduce((acc, n) => acc + Number(n.maxCapacity || 0), 0)}
+                {totalCpuCores} <span className="text-sm font-normal text-neutral-400">vCPU</span>
+              </p>
+              <p className="mt-1 text-[11px] tabular-nums text-neutral-500">
+                <span className="font-semibold text-emerald-700 dark:text-[#1ED760]">{onlineCpuCores}</span> online cores available
               </p>
             </div>
+
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-neutral-500">Total Cluster RAM</span>
+                <MemoryStick className="h-4 w-4 text-neutral-400" />
+              </div>
+              <p className="mt-1.5 text-2xl font-semibold tabular-nums text-neutral-950 dark:text-white">
+                {totalRamGb} <span className="text-sm font-normal text-neutral-400">GB</span>
+              </p>
+              <p className="mt-1 text-[11px] tabular-nums text-neutral-500">
+                <span className="font-semibold text-emerald-700 dark:text-[#1ED760]">{onlineRamGb} GB</span> online RAM pooled
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-neutral-500">Total Cluster Storage</span>
+                <HardDrive className="h-4 w-4 text-neutral-400" />
+              </div>
+              <p className="mt-1.5 text-2xl font-semibold tabular-nums text-neutral-950 dark:text-white">
+                {totalStorageGb} <span className="text-sm font-normal text-neutral-400">GB</span>
+              </p>
+              <div className="mt-1.5 space-y-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                  <div
+                    className="h-full rounded-full bg-[#1ED760]"
+                    style={{ width: `${clusterStoragePct}%` }}
+                  />
+                </div>
+                <p className="text-[11px] tabular-nums text-neutral-500">
+                  {totalStorageUsedGb} GB used / {totalStorageFreeGb} GB free
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Autonomous Cluster Engine Banner */}
+          <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1ED760]/30 bg-[#1ED760]/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 dark:text-[#1ED760]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Autonomous Cluster Engine
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                  Policy: {automation.loadBalancingPolicy || 'weighted_least_load_overflow'}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                  Auto-Failovers:{' '}
+                  <strong className="tabular-nums text-neutral-950 dark:text-white">
+                    {automation.autoFailoverCount ?? 0}
+                  </strong>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                  Self-Healed:{' '}
+                  <strong className="tabular-nums text-emerald-700 dark:text-[#1ED760]">
+                    {automation.selfHealedCount ?? 0}
+                  </strong>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                  <Globe className="h-3 w-3 text-neutral-400" />
+                  TZ: {automation.timezone || 'UTC'}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#1ED760]/30 bg-[#1ED760]/10 px-2.5 py-1 text-[11px] font-medium text-emerald-800 dark:text-[#1ED760]">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Auto-Log Pruning: {automation.autoLogPruningEnabled !== false ? 'Active' : 'Off'}
+                </span>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2 text-[11px] text-neutral-500">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200/80 bg-neutral-50 px-2.5 py-1 dark:border-neutral-800 dark:bg-neutral-900">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#1ED760]" />
+                  15s Auto-Refresh Active
+                </span>
+                {lastSyncedAt && (
+                  <span className="tabular-nums text-neutral-400">
+                    Synced {new Date(lastSyncedAt).toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {activeAlerts.length > 0 && (
+              <div className="mt-3 space-y-1.5 border-t border-neutral-200/80 pt-3 dark:border-neutral-800">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Active Offline Alerts ({activeAlerts.length})
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {activeAlerts.map((alert, idx) => (
+                    <div
+                      key={`${alert.nodeId || idx}-${alert.type || 'alert'}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-[11px] text-rose-800 dark:text-rose-200"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-semibold">{alert.nodeName || alert.nodeId}</span>
+                        <span className="mx-1.5 text-rose-400">·</span>
+                        <span>
+                          {alert.failoverTargetName
+                            ? `Failover routed to ${alert.failoverTargetName}`
+                            : 'Node offline — awaiting recovery'}
+                        </span>
+                      </div>
+                      {alert.at && (
+                        <span className="shrink-0 font-mono text-[10px] text-rose-500">
+                          {new Date(alert.at).toLocaleTimeString()}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Search, Filters & Table */}
@@ -610,7 +1015,7 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                       setFleetSearch(e.target.value);
                       setFleetPage(1);
                     }}
-                    placeholder="Search host, IP, node name..."
+                    placeholder="Search hostname, IP, node name..."
                     className="h-9 w-full rounded-xl border border-neutral-200/80 bg-neutral-50 pl-9 pr-3 text-xs text-neutral-900 outline-none focus:border-[#1ED760] focus:bg-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                   />
                 </div>
@@ -623,8 +1028,8 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                   }}
                   className="h-9 rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-800 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 >
-                  <option value="">All Control Panels</option>
-                  {PANEL_TYPES.map((p) => (
+                  <option value="">All Node Types</option>
+                  {FILTER_PANEL_TYPES.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.label}
                     </option>
@@ -638,7 +1043,7 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                     setRegionFilter(e.target.value);
                     setFleetPage(1);
                   }}
-                  placeholder="Region (e.g. ap-south-1)"
+                  placeholder="Region (e.g. sgp1, bd1)"
                   className="h-9 rounded-xl border border-neutral-200/80 bg-white px-3 text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 />
 
@@ -653,8 +1058,10 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                   >
                     <option value="">All Statuses</option>
                     <option value="online">Online</option>
+                    <option value="degraded">Degraded</option>
                     <option value="offline">Offline</option>
-                    <option value="unprobed">Unprobed</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="unknown">Unknown</option>
                   </select>
 
                   <button
@@ -678,13 +1085,12 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
             )}
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] text-left text-xs">
+              <table className="w-full min-w-[1060px] text-left text-xs">
                 <thead>
                   <tr className="border-b border-neutral-200/80 bg-neutral-50/70 text-[11px] font-semibold text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400">
-                    <th className="px-4 py-3">Node / Host</th>
-                    <th className="px-3 py-3">Panel Type</th>
-                    <th className="px-3 py-3">Region</th>
-                    <th className="px-3 py-3">Hardware / Capacity</th>
+                    <th className="px-4 py-3">Node / Host &amp; Network IPs</th>
+                    <th className="px-3 py-3">OS / Region</th>
+                    <th className="px-3 py-3">Hardware &amp; Storage</th>
                     <th className="px-3 py-3 text-center">Connectivity &amp; Latency</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
@@ -692,59 +1098,161 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                 <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800/80">
                   {fleetLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-neutral-400">
+                      <td colSpan={5} className="px-4 py-12 text-center text-neutral-400">
                         Loading server fleet...
                       </td>
                     </tr>
                   ) : nodes.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-neutral-500">
-                        No server nodes found. Add a node or bulk import CSV/JSON to manage your fleet.
+                      <td colSpan={5} className="px-4 py-12 text-center text-neutral-500">
+                        No server nodes found. Click Add Server Node to link an Ubuntu server via SSH or register manually.
                       </td>
                     </tr>
                   ) : (
                     nodes.map((node) => {
                       const badge = getNodeStatusBadge(node.status);
                       const BadgeIcon = badge.Icon;
-                      const panelLabel =
-                        PANEL_TYPES.find((p) => p.id === node.panelType)?.label || node.panelType || 'Custom';
+                      const isPrimaryNode = Boolean(node.isPrimary || node.id === 'primary-ubuntu-node');
+                      const ipv4List = Array.isArray(node.networkAddresses?.ipv4) && node.networkAddresses.ipv4.length > 0
+                        ? node.networkAddresses.ipv4
+                        : (node.ipAddress ? [node.ipAddress] : []);
+                      const ipv6List = Array.isArray(node.networkAddresses?.ipv6) && node.networkAddresses.ipv6.length > 0
+                        ? node.networkAddresses.ipv6
+                        : (node.ipv6Address ? [node.ipv6Address] : []);
+                      const osLabel = node.detectedOsName || node.detectedOsId || PANEL_LABELS[node.panelType] || node.panelType || 'Linux Node';
+
+                      const storageGb = Number(node.storageGb || 0);
+                      const storageFreeGb = node.storageFreeGb != null ? Number(node.storageFreeGb) : null;
+                      const storageUsedGb = node.storageUsedGb != null
+                        ? Number(node.storageUsedGb)
+                        : (storageFreeGb != null ? Math.max(0, Number((storageGb - storageFreeGb).toFixed(1))) : null);
+                      const storageUsedPct =
+                        storageGb > 0 && storageUsedGb != null
+                          ? Math.min(100, Math.max(0, Math.round((storageUsedGb / storageGb) * 100)))
+                          : null;
 
                       return (
                         <tr key={node.id} className="align-top hover:bg-neutral-50/60 dark:hover:bg-neutral-900/40">
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-neutral-950 dark:text-white">
-                              {node.name || node.host}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-neutral-950 dark:text-white">
+                                {node.name || node.hostname}
+                              </span>
+                              {isPrimaryNode && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-[#1ED760]/40 bg-[#1ED760]/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-[#1ED760]">
+                                  <Lock className="h-2.5 w-2.5" />
+                                  Primary Master Host (Locked)
+                                </span>
+                              )}
                             </div>
-                            <div className="font-mono text-[11px] text-neutral-500">
-                              {node.host} · {node.ip || 'No IP'}:{node.port || '—'}
+
+                            <div className="mt-0.5 font-mono text-[11px] text-neutral-500">
+                              {node.hostname || '—'} · API :{node.apiPort ?? 9443} · SSH :{node.sshPort ?? 22}
                             </div>
-                            {node.panelUrl && (
-                              <a
-                                href={node.panelUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-0.5 inline-block font-mono text-[10px] text-emerald-700 hover:underline dark:text-[#1ED760]"
-                              >
-                                {node.panelUrl}
-                              </a>
-                            )}
+
+                            {/* All detected IPv4 and IPv6 addresses */}
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {ipv4List.map((v4) => (
+                                <button
+                                  key={`v4-${v4}`}
+                                  type="button"
+                                  onClick={() => handleCopyAddress(v4)}
+                                  title="Click to copy IPv4 address"
+                                  className="inline-flex items-center gap-1 rounded-md border border-neutral-200/80 bg-neutral-50 px-1.5 py-0.5 font-mono text-[10px] text-neutral-700 transition hover:border-[#1ED760] hover:text-neutral-950 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:text-white"
+                                >
+                                  <span className="font-semibold text-emerald-700 dark:text-[#1ED760]">IPv4</span>
+                                  <span>{v4}</span>
+                                  {copiedIp === v4 ? <Check className="h-2.5 w-2.5 text-[#1ED760]" /> : <Copy className="h-2.5 w-2.5 opacity-50" />}
+                                </button>
+                              ))}
+                              {ipv6List.map((v6) => (
+                                <button
+                                  key={`v6-${v6}`}
+                                  type="button"
+                                  onClick={() => handleCopyAddress(v6)}
+                                  title="Click to copy IPv6 address"
+                                  className="inline-flex max-w-[230px] items-center gap-1 rounded-md border border-neutral-200/80 bg-neutral-50 px-1.5 py-0.5 font-mono text-[10px] text-neutral-700 transition hover:border-[#1ED760] hover:text-neutral-950 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:text-white"
+                                >
+                                  <span className="shrink-0 font-semibold text-sky-600 dark:text-sky-400">IPv6</span>
+                                  <span className="truncate">{v6}</span>
+                                  {copiedIp === v6 ? <Check className="h-2.5 w-2.5 shrink-0 text-[#1ED760]" /> : <Copy className="h-2.5 w-2.5 shrink-0 opacity-50" />}
+                                </button>
+                              ))}
+                              {ipv4List.length === 0 && ipv6List.length === 0 && (
+                                <span className="font-mono text-[10px] text-neutral-400">No IP detected</span>
+                              )}
+                            </div>
+
+                            {(() => {
+                              const safePanelUrl = sanitizeHttpUrl(node.panelUrl);
+                              return safePanelUrl ? (
+                                <a
+                                  href={safePanelUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-1 inline-block font-mono text-[10px] text-emerald-700 hover:underline dark:text-[#1ED760]"
+                                >
+                                  {safePanelUrl}
+                                </a>
+                              ) : null;
+                            })()}
                           </td>
+
                           <td className="px-3 py-3">
-                            <span className="inline-flex rounded-md border border-neutral-200/80 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-                              {panelLabel}
-                            </span>
+                            <div className="space-y-1.5">
+                              <span className="inline-flex items-center gap-1 rounded-md border border-neutral-200/80 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
+                                <Terminal className="h-3 w-3 text-[#1ED760]" />
+                                {osLabel}
+                              </span>
+                              <div className="font-mono text-[11px] text-neutral-600 dark:text-neutral-300">
+                                Region: {node.region || '—'}
+                              </div>
+                              {node.timezone && (
+                                <div className="font-mono text-[10px] text-neutral-500">
+                                  TZ: {node.timezone}
+                                </div>
+                              )}
+                            </div>
                           </td>
-                          <td className="px-3 py-3 font-mono text-neutral-600 dark:text-neutral-300">
-                            {node.region || '—'}
-                          </td>
+
                           <td className="px-3 py-3 tabular-nums text-neutral-700 dark:text-neutral-300">
-                            <div>
-                              {node.cpuCores ?? '—'} vCPU · {node.ramGb ?? '—'} GB RAM · {node.diskGb ?? '—'} GB Disk
+                            <div className="font-medium">
+                              {node.cpuCores ?? '—'} vCPU · {node.ramGb ?? '—'} GB RAM · {storageGb || '—'} GB Disk
                             </div>
-                            <div className="text-[11px] text-neutral-500">
-                              Load: {node.currentTenants ?? 0} / {node.maxCapacity ?? '—'} tenants
+
+                            {/* Used / Free Storage Bar */}
+                            {storageGb > 0 && (
+                              <div className="mt-1.5 max-w-[230px] space-y-1">
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      storageUsedPct != null && storageUsedPct > 85
+                                        ? 'bg-rose-500'
+                                        : 'bg-[#1ED760]'
+                                    }`}
+                                    style={{ width: `${storageUsedPct ?? 0}%` }}
+                                  />
+                                </div>
+                                <div className="text-[10px] text-neutral-500">
+                                  {storageUsedGb != null && storageFreeGb != null
+                                    ? `${storageUsedGb} GB used / ${storageFreeGb} GB free`
+                                    : `${storageGb} GB allocated`}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+                              <span>
+                                Containers: {node.activeDroplets ?? 0} / {node.maxDroplets ?? '—'}
+                              </span>
+                              {node.loadPct != null && (
+                                <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                                  Load {node.loadPct}%
+                                </span>
+                              )}
                             </div>
                           </td>
+
                           <td className="px-3 py-3 text-center">
                             <div className="flex flex-col items-center gap-1">
                               <span
@@ -752,18 +1260,19 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                               >
                                 <BadgeIcon className="h-3 w-3" />
                                 {badge.label}
-                                {node.latencyMs != null && ` · ${node.latencyMs} ms`}
+                                {node.lastLatencyMs != null && ` · ${node.lastLatencyMs} ms`}
                               </span>
-                              {node.lastError && (
+                              {node.lastProbeError && (
                                 <span
                                   className="max-w-[190px] truncate text-[10px] text-rose-600 dark:text-rose-400"
-                                  title={node.lastError}
+                                  title={node.lastProbeError}
                                 >
-                                  {node.lastError}
+                                  {node.lastProbeError}
                                 </span>
                               )}
                             </div>
                           </td>
+
                           <td className="px-4 py-3 text-right">
                             <div className="inline-flex flex-wrap justify-end gap-1.5">
                               <button
@@ -792,14 +1301,16 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteNode(node)}
-                                title="Delete node"
-                                className="rounded-lg border border-neutral-200/80 p-1.5 text-rose-600 hover:bg-rose-50 dark:border-neutral-800 dark:hover:bg-rose-950/30"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                              {!isPrimaryNode && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteNode(node)}
+                                  title="Delete node"
+                                  className="rounded-lg border border-neutral-200/80 p-1.5 text-rose-600 hover:bg-rose-50 dark:border-neutral-800 dark:hover:bg-rose-950/30"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -985,40 +1496,40 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
         </div>
       )}
 
-      {/* Connectivity Guide Tab */}
+      {/* Auto-Link & Cluster Guide Tab */}
       {activeTab === 'guide' && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {[
             {
-              title: 'Tiwlo Panel Agent (Port 8443)',
+              title: 'One-Click Ubuntu SSH Auto-Link (Zero Config)',
               steps: [
-                'Install the Tiwlo Panel daemon on Ubuntu/Debian/AlmaLinux and generate a cluster API token.',
-                'Ensure TCP port 8443 (HTTPS) is reachable from the primary control plane.',
-                'Add the node using Panel Type "Tiwlo Panel" and click Ping to verify live TLS handshake & latency.',
+                'Click "Add Server Node" and enter your server IP Address, SSH Port (22), Username (root), and SSH Password or Private Key.',
+                'Tiwlo connects over SSH, auto-discovers CPU cores, RAM, NVMe/Disk free & used, OS image, timezone, and all IPv4/IPv6 addresses.',
+                'The persistent systemd tiwlo-node-agent is installed on port 9443 and the node immediately joins the cluster pool as Online.',
               ],
             },
             {
-              title: 'cPanel / WHM (Port 2087)',
+              title: 'Weighted Overflow Load Balancing & Pooling',
               steps: [
-                'Create a WHM API Token in WHM → Development → Manage API Tokens with acctinfo & createacct scopes.',
-                'Set Panel URL to https://hostname:2087 and paste the WHM API token into Auth Token.',
-                'Click Ping to validate live connectivity and monitor account capacity.',
+                'Every connected server contributes CPU, RAM, and free disk capacity into the unified Cluster Hardware Pool.',
+                'New workloads use weighted_least_load_overflow scheduling to automatically route around full servers to nodes with free disk and RAM.',
+                'Primary Cluster Master Host is locked against accidental deletion and synced continuously with host hardware telemetry.',
               ],
             },
             {
-              title: 'KVM Hypervisor / Dedicated Droplet (Port 22 / 8006)',
+              title: 'Auto-Failover, Self-Healing & Log Pruning',
               steps: [
-                'Expose the hypervisor management API or SSH health endpoint on the designated port.',
-                'Provide host, IP, CPU/RAM/Disk allocation, and max tenant capacity.',
-                'Use Bulk Import (CSV/JSON) to register hundreds or thousands of hypervisor nodes in one batch.',
+                'If a node drops offline during automated sweeps, active tenants automatically fail over to the healthiest node with free capacity.',
+                'When an offline server recovers, the cluster engine marks it self-healed and clears its active offline alert.',
+                'Connectivity & audit logs are automatically pruned so host storage never fills up.',
               ],
             },
             {
-              title: 'Plesk / DirectAdmin / Custom Panels',
+              title: 'Cluster Backups Toggle (Storage Saver)',
               steps: [
-                'Plesk Obsidian defaults to port 8443; DirectAdmin defaults to port 2222.',
-                'Use API Key / Login Key tokens rather than root passwords for automated probing.',
-                'Review per-node probe & configuration history anytime via the node Logs drawer.',
+                'Use the top control bar switch to toggle Cluster Backups between Off (Saving Storage) and Active.',
+                'Sensitive changes—including backup toggles, node onboarding, edits, and deletions—are protected by Admin Security PIN re-authentication.',
+                'Use Bulk Import (CSV/JSON) when onboarding large server batches.',
               ],
             },
           ].map((card) => (
@@ -1043,7 +1554,7 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
         </div>
       )}
 
-      {/* Add / Edit Node Modal */}
+      {/* Simplified Plug-and-Play Add / Edit Server Node Modal (NO Panel Type Dropdown) */}
       {nodeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-2xs">
           <form
@@ -1051,9 +1562,16 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
             className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-xl border border-neutral-200/80 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-950"
           >
             <div className="flex items-center justify-between border-b border-neutral-200/80 pb-3 dark:border-neutral-800">
-              <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
-                {editingNode ? 'Edit Server Node' : 'Add Control Panel / Server Node'}
-              </h3>
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
+                  {editingNode ? 'Edit Server Node' : 'Add Server Node (Plug & Play)'}
+                </h3>
+                <p className="text-[11px] text-neutral-500">
+                  {editingNode
+                    ? 'Update node network, region, or hardware allocation.'
+                    : 'Enter SSH credentials for one-click auto-discovery & systemd agent setup, or expand manual fields.'}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setNodeModalOpen(false)}
@@ -1063,179 +1581,258 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
               </button>
             </div>
 
+            {!editingNode && (
+              <div className="rounded-xl border border-[#1ED760]/30 bg-[#1ED760]/10 px-3.5 py-2.5 text-[11px] text-neutral-800 dark:text-neutral-200">
+                <div className="flex items-center gap-1.5 font-semibold text-emerald-800 dark:text-[#1ED760]">
+                  <KeyRound className="h-3.5 w-3.5" />
+                  {isSshAutoLinkMode
+                    ? 'One-Click SSH Auto-Link Active'
+                    : 'Optional: Paste SSH Password or Key for Zero-Config Onboarding'}
+                </div>
+                <p className="mt-0.5 text-neutral-600 dark:text-neutral-300">
+                  {isSshAutoLinkMode
+                    ? 'Tiwlo will connect via SSH, auto-detect CPU/RAM/Disk/OS/IPv4/IPv6, install the persistent systemd agent, and mark the node Online.'
+                    : 'Leave SSH credentials blank only if you want to register manual node metadata below.'}
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                  Node Name
+                  Node Label / Name {!isSshAutoLinkMode ? '*' : '(Optional)'}
                 </label>
                 <input
                   type="text"
-                  required
+                  required={!isSshAutoLinkMode}
                   value={nodeForm.name}
                   onChange={(e) => setNodeForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="sgp-node-01"
+                  placeholder="sgp-ubuntu-01"
                   className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 />
               </div>
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                  Panel Type
-                </label>
-                <select
-                  value={nodeForm.panelType}
-                  onChange={(e) => {
-                    const nextType = e.target.value;
-                    const meta = PANEL_TYPES.find((p) => p.id === nextType);
-                    setNodeForm((f) => ({
-                      ...f,
-                      panelType: nextType,
-                      port: meta?.defaultPort ?? f.port,
-                    }));
-                  }}
-                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                >
-                  {PANEL_TYPES.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                  Hostname
+                  Hostname {!isSshAutoLinkMode ? '*' : '(Auto-detected if blank)'}
                 </label>
                 <input
                   type="text"
-                  required
-                  value={nodeForm.host}
-                  onChange={(e) => setNodeForm((f) => ({ ...f, host: e.target.value }))}
+                  required={!isSshAutoLinkMode}
+                  value={nodeForm.hostname}
+                  onChange={(e) => setNodeForm((f) => ({ ...f, hostname: e.target.value }))}
                   placeholder="node01.tiwlo.net"
                   className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                    IP Address
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={nodeForm.ip}
-                    onChange={(e) => setNodeForm((f) => ({ ...f, ip: e.target.value }))}
-                    placeholder="203.0.113.10"
-                    className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                  />
-                </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  IP Address (IPv4) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={nodeForm.ipAddress}
+                  onChange={(e) => setNodeForm((f) => ({ ...f, ipAddress: e.target.value }))}
+                  placeholder="203.0.113.10"
+                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                    Port
+                    SSH Port
                   </label>
                   <input
                     type="number"
                     min="1"
                     max="65535"
-                    required
-                    value={nodeForm.port}
-                    onChange={(e) => setNodeForm((f) => ({ ...f, port: e.target.value }))}
-                    className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                  Control Panel URL
-                </label>
-                <input
-                  type="url"
-                  value={nodeForm.panelUrl}
-                  onChange={(e) => setNodeForm((f) => ({ ...f, panelUrl: e.target.value }))}
-                  placeholder="https://node01.tiwlo.net:8443"
-                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                  API / Auth Token {editingNode ? '(leave blank to keep)' : ''}
-                </label>
-                <input
-                  type="password"
-                  value={nodeForm.authToken}
-                  onChange={(e) => setNodeForm((f) => ({ ...f, authToken: e.target.value }))}
-                  placeholder="Bearer / WHM / Panel API token"
-                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                  Region
-                </label>
-                <input
-                  type="text"
-                  value={nodeForm.region}
-                  onChange={(e) => setNodeForm((f) => ({ ...f, region: e.target.value }))}
-                  placeholder="ap-south-1 / us-east-1 / eu-central-1"
-                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:grid-cols-4">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                    CPU Cores
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={nodeForm.cpuCores}
-                    onChange={(e) => setNodeForm((f) => ({ ...f, cpuCores: e.target.value }))}
+                    value={nodeForm.sshPort}
+                    onChange={(e) => setNodeForm((f) => ({ ...f, sshPort: e.target.value }))}
                     className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                    RAM (GB)
+                    Region
                   </label>
                   <input
-                    type="number"
-                    min="1"
-                    value={nodeForm.ramGb}
-                    onChange={(e) => setNodeForm((f) => ({ ...f, ramGb: e.target.value }))}
-                    className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                    Disk (GB)
-                  </label>
-                  <input
-                    type="number"
-                    min="10"
-                    value={nodeForm.diskGb}
-                    onChange={(e) => setNodeForm((f) => ({ ...f, diskGb: e.target.value }))}
-                    className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                    Max Capacity
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={nodeForm.maxCapacity}
-                    onChange={(e) => setNodeForm((f) => ({ ...f, maxCapacity: e.target.value }))}
-                    className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    type="text"
+                    value={nodeForm.region}
+                    onChange={(e) => setNodeForm((f) => ({ ...f, region: e.target.value }))}
+                    placeholder="sgp1"
+                    className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                   />
                 </div>
               </div>
+
+              {!editingNode && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                      SSH Username
+                    </label>
+                    <input
+                      type="text"
+                      value={nodeForm.sshUser}
+                      onChange={(e) => setNodeForm((f) => ({ ...f, sshUser: e.target.value }))}
+                      placeholder="root"
+                      className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                      SSH Password (Optional)
+                    </label>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={nodeForm.sshPassword}
+                      onChange={(e) => setNodeForm((f) => ({ ...f, sshPassword: e.target.value }))}
+                      placeholder="Root / sudo SSH password"
+                      className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                      SSH Private Key (Optional — PEM / OpenSSH)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={nodeForm.sshPrivateKey}
+                      onChange={(e) => setNodeForm((f) => ({ ...f, sshPrivateKey: e.target.value }))}
+                      placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                      className="w-full rounded-xl border border-neutral-200/80 bg-white p-2.5 font-mono text-[11px] text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+                </>
+              )}
+
+              {!editingNode && !isSshAutoLinkMode && (
+                <div className="sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedFields((v) => !v)}
+                    className="text-[11px] font-semibold text-emerald-700 hover:underline dark:text-[#1ED760]"
+                  >
+                    {showAdvancedFields
+                      ? 'Hide Manual Hardware & Agent API Fields'
+                      : 'Show Manual Hardware & Agent API Fields (for non-SSH registration)'}
+                  </button>
+                </div>
+              )}
+
+              {(editingNode || (!isSshAutoLinkMode && showAdvancedFields)) && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                      IPv6 Address (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={nodeForm.ipv6Address}
+                      onChange={(e) => setNodeForm((f) => ({ ...f, ipv6Address: e.target.value }))}
+                      placeholder="2001:db8::1"
+                      className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                      Agent API Port
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="65535"
+                      value={nodeForm.apiPort}
+                      onChange={(e) => setNodeForm((f) => ({ ...f, apiPort: e.target.value }))}
+                      className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                      Panel / Agent URL (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={nodeForm.panelUrl}
+                      onChange={(e) => setNodeForm((f) => ({ ...f, panelUrl: e.target.value }))}
+                      placeholder="https://node01.tiwlo.net:9443"
+                      className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                      Agent Bearer Token {editingNode ? '(blank to keep)' : '(Optional)'}
+                    </label>
+                    <input
+                      type="password"
+                      value={nodeForm.bearerToken}
+                      onChange={(e) => setNodeForm((f) => ({ ...f, bearerToken: e.target.value }))}
+                      placeholder="Node agent bearer token"
+                      className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:grid-cols-4">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                        CPU Cores
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={nodeForm.cpuCores}
+                        onChange={(e) => setNodeForm((f) => ({ ...f, cpuCores: e.target.value }))}
+                        className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                        RAM (GB)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={nodeForm.ramGb}
+                        onChange={(e) => setNodeForm((f) => ({ ...f, ramGb: e.target.value }))}
+                        className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                        Storage (GB)
+                      </label>
+                      <input
+                        type="number"
+                        min="10"
+                        value={nodeForm.storageGb}
+                        onChange={(e) => setNodeForm((f) => ({ ...f, storageGb: e.target.value }))}
+                        className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                        Max Droplets
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={nodeForm.maxDroplets}
+                        onChange={(e) => setNodeForm((f) => ({ ...f, maxDroplets: e.target.value }))}
+                        className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-neutral-200/80 pt-3 dark:border-neutral-800">
@@ -1251,7 +1848,15 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                 disabled={saving}
                 className="rounded-xl bg-[#1ED760] px-4 py-1.5 text-xs font-semibold text-black transition hover:bg-[#19c354] disabled:opacity-50"
               >
-                {saving ? 'Saving...' : editingNode ? 'Save Changes' : 'Add Server Node'}
+                {saving
+                  ? isSshAutoLinkMode
+                    ? 'Connecting & Onboarding via SSH...'
+                    : 'Saving...'
+                  : editingNode
+                    ? 'Save Changes'
+                    : isSshAutoLinkMode
+                      ? 'Auto-Link & Onboard via SSH'
+                      : 'Add Server Node'}
               </button>
             </div>
           </form>
@@ -1271,7 +1876,7 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                   Bulk Import Server Fleet (JSON or CSV)
                 </h3>
                 <p className="text-[11px] text-neutral-500">
-                  Import hundreds or thousands of servers in one request (`POST /api/admin/fleet/nodes/bulk`).
+                  Import up to 500 Ubuntu cluster nodes in one batch (`POST /api/admin/fleet/nodes/bulk`).
                 </p>
               </div>
               <button
@@ -1284,7 +1889,7 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
             </div>
 
             <div className="rounded-xl border border-neutral-200/80 bg-neutral-50 p-3 font-mono text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-              CSV columns: name,host,ip,port,panelType,panelUrl,region,cpuCores,ramGb,diskGb,maxCapacity,authToken
+              CSV columns: name,hostname,ipAddress,apiPort,sshPort,region,cpuCores,ramGb,storageGb,maxDroplets,bearerToken
             </div>
 
             <textarea
@@ -1292,7 +1897,7 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
               required
               value={bulkInput}
               onChange={(e) => setBulkInput(e.target.value)}
-              placeholder={'name,host,ip,port,panelType,panelUrl,region,cpuCores,ramGb,diskGb,maxCapacity\nsgp-01,sgp01.tiwlo.net,203.0.113.10,8443,tiwlo_panel,https://sgp01.tiwlo.net:8443,ap-southeast-1,8,32,500,300'}
+              placeholder={'name,hostname,ipAddress,apiPort,sshPort,region,cpuCores,ramGb,storageGb,maxDroplets\nsgp-01,sgp01.tiwlo.net,203.0.113.10,9443,22,sgp1,8,32,500,300'}
               className="w-full rounded-xl border border-neutral-200/80 bg-white p-3 font-mono text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
             />
 
@@ -1323,10 +1928,10 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
             <div className="flex items-center justify-between border-b border-neutral-200/80 p-5 dark:border-neutral-800">
               <div>
                 <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
-                  Probe &amp; Config Logs · {logsDrawerNode.name || logsDrawerNode.host}
+                  Probe &amp; Config Logs · {logsDrawerNode.name || logsDrawerNode.hostname}
                 </h3>
                 <p className="font-mono text-[11px] text-neutral-500">
-                  {logsDrawerNode.ip}:{logsDrawerNode.port}
+                  {logsDrawerNode.ipAddress || '—'}:{logsDrawerNode.apiPort ?? 9443}
                 </p>
               </div>
               <button
@@ -1353,15 +1958,15 @@ export default function AdminServersView({ onBackToDashboard, showToast }) {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono font-semibold text-neutral-900 dark:text-white">
-                        {log.event || log.action || log.status || 'probe'}
+                        {log.eventType || log.event || log.action || log.status || 'probe'}
                       </span>
                       <span className="tabular-nums text-[11px] text-neutral-500">
                         {log.createdAt ? new Date(log.createdAt).toLocaleString() : '—'}
                       </span>
                     </div>
-                    {(log.message || log.error || log.latencyMs != null) && (
+                    {(log.errorMessage || log.message || log.error || log.latencyMs != null) && (
                       <p className="mt-1 text-[11px] text-neutral-600 dark:text-neutral-300">
-                        {log.message || log.error || `Latency: ${log.latencyMs} ms`}
+                        {log.errorMessage || log.message || log.error || `Latency: ${log.latencyMs} ms`}
                       </p>
                     )}
                   </div>

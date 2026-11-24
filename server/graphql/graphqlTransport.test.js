@@ -7,7 +7,8 @@ for (const [label, file] of [['web', '../../client/src/api/graphqlTransport.js']
     const source = (await fs.readFile(new URL(file, import.meta.url), 'utf8'))
       .replace(/import \{ PLATFORM_DOMAIN \} from [^;]+;/, "const PLATFORM_DOMAIN = 'tiwlo.com';")
       .replace(/import \{ BASE_URL \} from [^;]+;/, "const BASE_URL = 'https://tiwlo.com';")
-      .replace(/import \{ requestSensitiveActionGrant \} from [^;]+;/, 'const requestSensitiveActionGrant = async () => "test-grant";');
+      .replace(/import \{ requestSensitiveActionGrant \} from [^;]+;/, 'const requestSensitiveActionGrant = async () => "test-grant";')
+      .replace(/import \{ getDeviceTrackingHeaders \} from [^;]+;/, 'const getDeviceTrackingHeaders = async () => ({});');
     const previousWindow = globalThis.window;
     globalThis.window = { location: { href: 'https://tiwlo.com/dashboard', origin: 'https://tiwlo.com' } };
     t.after(() => { globalThis.window = previousWindow; });

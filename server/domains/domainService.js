@@ -237,6 +237,24 @@ export async function createUserDomain({ userId, tiwiId, domain: input }) {
     throw new DomainServiceError('This account has reached the limit of 10 custom domains.', 409);
   }
 
+  // Prevent registering a child subdomain or parent domain already owned by another account (DNS shadowing / verification hijack guard).
+  const labels = domain.split('.');
+  const ancestorDomains = labels.slice(1, -1).map((_, idx) => labels.slice(idx + 1).join('.'));
+  const { rows: relatedRows } = await queryPg(
+    `SELECT domain, user_id
+     FROM system_custom_domains
+     WHERE user_id <> $1
+       AND (domain = ANY($2::text[]) OR domain LIKE $3)
+     LIMIT 1`,
+    [userId, ancestorDomains, `%.${domain}`]
+  );
+  if (relatedRows.length > 0) {
+    throw new DomainServiceError(
+      'This domain hierarchy is already verified or managed by another account.',
+      409
+    );
+  }
+
   const token = randomBytes(24).toString('hex');
   const id = `dom_${randomBytes(12).toString('hex')}`;
   try {

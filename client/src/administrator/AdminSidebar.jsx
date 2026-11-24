@@ -8,6 +8,7 @@ import {
   Package,
   Gift,
   CreditCard,
+  Cpu,
   Server,
   Globe,
   Network,
@@ -33,6 +34,8 @@ const VIEW_REQUIRED_PERMISSIONS = {
   promotions: ['manage_packages_promos'],
   'platform-payments': ['manage_system_settings'],
   servers: ['manage_servers'],
+  'server-packages': ['manage_servers', 'manage_packages_promos'],
+  'server-allocation': ['manage_servers', 'manage_packages_promos'],
   domains: ['manage_dns_domains'],
   dns: ['manage_dns_domains'],
   'google-drive': ['manage_servers'],
@@ -128,6 +131,8 @@ const NAV_SECTIONS = [
     title: 'INFRASTRUCTURE',
     items: [
       { id: 'servers', label: 'Server & System Status', icon: Server },
+      { id: 'server-packages', label: 'Server Packages', icon: Package },
+      { id: 'server-allocation', label: 'Resource Allocation', icon: Cpu },
       { id: 'domains', label: 'Domains & Subdomains', icon: Globe },
       { id: 'dns', label: 'DNS Records', icon: Network },
       { id: 'google-drive', label: 'Google Drive', icon: HardDrive }

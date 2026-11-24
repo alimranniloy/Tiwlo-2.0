@@ -26,12 +26,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Non-root tenant runner mount point; customer files stay outside the image
-RUN mkdir -p /srv/tenant/app /srv/tenant/storage /srv/tenant/logs \
-    && chown -R www-data:www-data /srv/tenant
+# Non-root tenant runner mount point & unprivileged nginx setup; customer files stay outside the image
+RUN mkdir -p /srv/tenant/app /srv/tenant/storage /srv/tenant/logs /var/lib/nginx /var/log/nginx /run/php \
+    && sed -i 's/listen 80 default_server;/listen 8080 default_server;/g; s/listen \[::\]:80 default_server;/listen [::]:8080 default_server;/g; s/^user www-data;/# user www-data;/g' /etc/nginx/nginx.conf /etc/nginx/sites-available/default 2>/dev/null || true \
+    && chown -R www-data:www-data /srv/tenant /var/lib/nginx /var/log/nginx /run/php
 
+USER www-data
 WORKDIR /srv/tenant/app
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "php-fpm* -D && nginx -g 'daemon off;'"]
+CMD ["sh", "-c", "php-fpm* -F & exec nginx -g 'daemon off; pid /tmp/nginx.pid;'"]

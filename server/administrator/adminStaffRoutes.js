@@ -122,8 +122,8 @@ export function createAdminStaffRouter({ requireAdmin, requireRecentReauth, Mast
     });
   });
 
-  // Initial mandatory 2-step Security PIN setup (only when no PIN is currently set)
-  router.post('/security-pin/setup', requireAdmin, requireStaffIpAndContext, async (req, res) => {
+  // Initial mandatory 2-step Security PIN setup (protected by fresh account re-verification)
+  router.post('/security-pin/setup', requireAdmin, requireStaffIpAndContext, requireRecentReauth, async (req, res) => {
     try {
       const result = await setupInitialAdminPin(req.adminUser, req.body || {});
       return res.json(result);

@@ -667,10 +667,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             {/* Top Stat Cards — PURE WHITE SURFACES (No dark/blackish tints!) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
               
-              {/* Card 1: Available Balance + Credit Balance below */}
+              {/* Card 1: Cash Balance + Promotional Credit Bucket */}
               <div className="p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                 <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-                  <span className="font-medium">Available Balance</span>
+                  <span className="font-medium">Cash Balance (Paid Funds)</span>
                   <div className="w-7 h-7 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 flex items-center justify-center">
                     <Coins className="w-3.5 h-3.5" />
                   </div>
@@ -711,8 +711,13 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     </button>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-neutral-500 dark:text-neutral-400">Promotional Gift</span>
-                    <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                    <span className="inline-flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
+                      <span>Promo Credits (Bonus)</span>
+                      <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                        PROMO
+                      </span>
+                    </span>
+                    <span className="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
                       {promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}
                     </span>
                   </div>
@@ -1015,32 +1020,43 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 text-xs font-medium mb-2">
                     <Coins className="w-3.5 h-3.5" />
-                    <span>Available Balance</span>
+                    <span>Cash Balance (Paid Funds)</span>
                   </div>
                   <div className="flex items-baseline gap-2 mt-1">
                     <span className="text-3xl sm:text-4xl font-semibold text-neutral-950 dark:text-white tracking-tight">
                       {credits === null ? 'Unavailable' : formatMoney(credits)}
                     </span>
                     <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">
-                      Available Wallet ({account.currency})
+                      Cash Wallet ({account.currency})
                     </span>
                   </div>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5 max-w-xl">
-                    Promotional gift credits are applied automatically first toward Cloud Stores, packages, and add-ons until expiry.
+                    Deposited cash stays strictly separate from promotional bonus credits. Active promo credits apply automatically before cash until their expiration date.
                   </p>
                 </div>
 
-                <div className="w-full sm:w-auto min-w-[240px] p-4 rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 text-xs space-y-2 shrink-0">
+                <div className="w-full sm:w-auto min-w-[260px] p-4 rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 text-xs space-y-2 shrink-0">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-neutral-500 dark:text-neutral-400">Total Credit Balance</span>
-                    <span className="font-semibold text-neutral-950 dark:text-white">
-                      {totalCreditBalance === null ? 'Unavailable' : formatMoney(totalCreditBalance)}
+                    <span className="text-neutral-500 dark:text-neutral-400">Cash Balance</span>
+                    <span className="font-semibold text-neutral-950 dark:text-white tabular-nums">
+                      {credits === null ? 'Unavailable' : formatMoney(credits)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-neutral-500 dark:text-neutral-400">Promotional Credit</span>
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                    <span className="inline-flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
+                      <span>Promo Credits</span>
+                      <span className="rounded px-1 py-0.5 text-[9px] font-semibold uppercase bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                        PROMO
+                      </span>
+                    </span>
+                    <span className="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
                       {promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 border-t border-neutral-200 pt-2 dark:border-neutral-800">
+                    <span className="text-neutral-500 dark:text-neutral-400">Combined Spending Limit</span>
+                    <span className="font-semibold text-neutral-950 dark:text-white tabular-nums">
+                      {totalCreditBalance === null ? 'Unavailable' : formatMoney(totalCreditBalance)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-4 border-t border-neutral-200 pt-2 dark:border-neutral-800">

@@ -1990,6 +1990,18 @@ router.patch('/stores/:tiwiId/status', async (req, res) => {
   try {
     const userId = getReqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.activeUser?.isBanned) {
+      return res.status(403).json({ error: 'Account suspended. Store status cannot be changed.' });
+    }
+    if (isPgActive()) {
+      const holdCheck = await queryPg(
+        `SELECT hold_type FROM system_account_service_holds WHERE user_id = $1 AND hold_type IN ('nid_review', 'temp_ban', 'permanent_ban') AND purged_at IS NULL LIMIT 1`,
+        [userId]
+      ).catch(() => ({ rows: [] }));
+      if (holdCheck.rows?.[0]) {
+        return res.status(403).json({ error: 'Store actions are locked while account hold is active.' });
+      }
+    }
     const status = String(req.body?.status || '').toLowerCase();
     if (!['active', 'paused', 'offline', 'suspended'].includes(status)) {
       return res.status(400).json({ error: 'Store status must be active, paused, offline, or suspended.' });

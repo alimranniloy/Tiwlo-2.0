@@ -18,20 +18,20 @@ const CATALOG = [
   {
     category: 'Featured OS',
     items: [
-      { id: 'ubuntu-24', name: 'Ubuntu 24.04 LTS', os: 'Ubuntu', desc: 'Connected server shared Ubuntu runtime (tiwlo-ubuntu-shared-runtime:24.04).', version: '24.04 LTS · Shared Runtime Linked', badge: 'Connected', logo: '🐧', available: true },
-      { id: 'ubuntu-22', name: 'Ubuntu 22.04 LTS', os: 'Ubuntu', desc: 'Industry-standard stable LTS for node and docker microservices.', version: 'Jammy Jellyfish', logo: '🐧', available: false },
-      { id: 'debian-12', name: 'Debian 12', os: 'Debian', desc: 'Known for rock-solid stability and zero bloatware.', version: 'Bookworm Stable', logo: '🌀', available: false },
-      { id: 'almalinux-9', name: 'AlmaLinux 9', os: 'AlmaLinux', desc: '1:1 binary compatible alternative to Red Hat Enterprise Linux.', version: 'RHEL 9 Compatible', logo: '💼', available: false },
-      { id: 'fedora-40', name: 'Fedora 40', os: 'Fedora', desc: 'Bleeding-edge upstream development packages and tooling.', version: 'Cloud Base Edition', logo: '⚡', available: false }
+      { id: 'ubuntu-24', name: 'Ubuntu 24.04 LTS', os: 'Ubuntu', desc: 'Connected server shared Ubuntu runtime (tiwlo-ubuntu-shared-runtime:24.04).', version: '24.04 LTS · Noble Numbat', badge: 'Available', iconUrl: '/os-icons/ubuntu.svg', available: true },
+      { id: 'ubuntu-22', name: 'Ubuntu 22.04 LTS', os: 'Ubuntu', desc: 'Industry-standard stable LTS for node and docker microservices.', version: 'Jammy Jellyfish', iconUrl: '/os-icons/ubuntu.svg', available: false },
+      { id: 'debian-12', name: 'Debian 12', os: 'Debian', desc: 'Known for rock-solid stability and zero bloatware.', version: 'Bookworm Stable', iconUrl: '/os-icons/debian.svg', available: false },
+      { id: 'almalinux-9', name: 'AlmaLinux 9', os: 'AlmaLinux', desc: '1:1 binary compatible alternative to Red Hat Enterprise Linux.', version: 'RHEL 9 Compatible', iconUrl: '/os-icons/almalinux.svg', available: false },
+      { id: 'fedora-40', name: 'Fedora 40', os: 'Fedora', desc: 'Bleeding-edge upstream development packages and tooling.', version: 'Cloud Base Edition', iconUrl: '/os-icons/fedora.svg', available: false }
     ]
   },
   {
     category: '1-Click Application Stacks',
     items: [
-      { id: 'app-tpanel', name: 'TPanel 1.0 Control Panel', os: 'TPanel', desc: 'Deprecated / Disabled.', version: 'Unavailable', badge: 'Unavailable', logo: '🚀', available: false },
-      { id: 'app-docker', name: 'Docker on Ubuntu', os: 'Docker', desc: 'Pre-configured Docker Engine with Docker Compose and TLS ready.', version: 'Docker 27.x CE', badge: 'Unavailable', logo: '🐳', available: false },
-      { id: 'app-lemp', name: 'LEMP High-Performance', os: 'LEMP', desc: 'Nginx web server, PostgreSQL database, PHP 8.3-FPM stack.', version: 'Enterprise Web Stack', badge: 'Unavailable', logo: '⚡', available: false },
-      { id: 'app-nodejs', name: 'Node.js & PM2 Stack', os: 'NodeJS', desc: 'Full Node LTS runtime, PM2 process supervisor, and Git hooks.', version: 'Node.js 22 LTS', badge: 'Unavailable', logo: '🟢', available: false }
+      { id: 'app-tpanel', name: 'TPanel 1.0 Control Panel', os: 'TPanel', desc: 'Deprecated / Disabled.', version: 'Unavailable', badge: 'Unavailable', iconUrl: '/tiwlo-icon.png', available: false },
+      { id: 'app-docker', name: 'Docker on Ubuntu', os: 'Docker', desc: 'Pre-configured Docker Engine with Docker Compose and TLS ready.', version: 'Docker 27.x CE', badge: 'Unavailable', iconUrl: '/os-icons/docker.svg', available: false },
+      { id: 'app-lemp', name: 'LEMP High-Performance', os: 'LEMP', desc: 'Nginx web server, PostgreSQL database, PHP 8.3-FPM stack.', version: 'Enterprise Web Stack', badge: 'Unavailable', iconUrl: '/os-icons/nginx.svg', available: false },
+      { id: 'app-nodejs', name: 'Node.js & PM2 Stack', os: 'NodeJS', desc: 'Full Node LTS runtime, PM2 process supervisor, and Git hooks.', version: 'Node.js 22 LTS', badge: 'Unavailable', iconUrl: '/os-icons/nodejs.svg', available: false }
     ]
   }
 ];
@@ -91,8 +91,12 @@ export default function ImagesView({ onDeployImage, onBack }) {
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="w-11 h-11 rounded-xl bg-neutral-50 dark:bg-gray-800/80 border border-neutral-100 dark:border-gray-700/60 flex items-center justify-center text-xl shrink-0">
-                        {item.logo}
+                      <div className="w-11 h-11 rounded-xl bg-neutral-50 dark:bg-gray-800/80 border border-neutral-100 dark:border-gray-700/60 flex items-center justify-center shrink-0">
+                        <img
+                          src={item.iconUrl}
+                          alt={item.os || item.name}
+                          className={`w-6 h-6 object-contain ${item.iconUrl?.includes('almalinux') ? 'dark:invert' : ''}`}
+                        />
                       </div>
                       {item.badge && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-50 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300">

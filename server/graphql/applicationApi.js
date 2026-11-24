@@ -76,8 +76,20 @@ export function protectAsyncRouter(router, visited = new Set()) {
   return router;
 }
 
-function dispatch(router, route, method, input, context, fullPath) {
+function isPlainInputObject(value) {
+  return value === undefined || (value !== null && typeof value === 'object' && !Array.isArray(value));
+}
+
+function dispatch(router, route, method, input, context, fullPath, prefix = '') {
   return new Promise((resolve, reject) => {
+    if (
+      !isPlainInputObject(input) ||
+      !isPlainInputObject(input?.params) ||
+      !isPlainInputObject(input?.query) ||
+      !isPlainInputObject(input?.body)
+    ) {
+      return resolve({ status: 400, body: { error: 'Malformed GraphQL operation input' }, headers: {} });
+    }
     const req = Object.create(context.req);
     const params = input?.params || {};
     const routePath = route.replace(/:([A-Za-z0-9_]+)/g, (_, name) => {
@@ -116,7 +128,7 @@ function dispatch(router, route, method, input, context, fullPath) {
       });
     }
     Object.assign(req, {
-      method, url: routePath, originalUrl: routePath, baseUrl: '',
+      method, url: routePath, originalUrl: fullPath || routePath, baseUrl: prefix || '',
       params: {}, query: input?.query || {}, body: input?.body || {},
       // Never take authentication, headers, IP or cookies from GraphQL variables.
       activeUser: context.req.activeUser, cookies: context.req.cookies,
@@ -174,11 +186,19 @@ export function createApplicationGraphQL(groups) {
         const target = method === 'get' ? queries : mutations;
         if (target[field]) continue;
         operations.push({ field, method: method.toUpperCase(), path: routePath });
-        target[field] = { type: Result, args: { input: { type: Input } }, resolve: (_root, { input }, context) => dispatch(router, relativePath, method.toUpperCase(), input, context, routePath) };
+        target[field] = { type: Result, args: { input: { type: Input } }, resolve: (_root, { input }, context) => dispatch(router, relativePath, method.toUpperCase(), input, context, routePath, prefix) };
       }
     }
   }
-  queries.applicationOperations = { type: new GraphQLList(Operation), resolve: () => operations };
+  queries.applicationOperations = {
+    type: new GraphQLList(Operation),
+    resolve: (_root, _args, context) => {
+      const role = context?.req?.activeUser?.role;
+      const isAdmin = role === 'admin' || role === 'super_admin';
+      if (isAdmin) return operations;
+      return operations.filter((op) => !/^\/api\/(?:admin|staff)\b/i.test(op.path));
+    }
+  };
   const schema = new GraphQLSchema({ query: new GraphQLObjectType({ name: 'ApplicationQuery', fields: queries }), ...(Object.keys(mutations).length ? { mutation: new GraphQLObjectType({ name: 'ApplicationMutation', fields: mutations }) } : {}) });
   return async (req, res) => {
     try {

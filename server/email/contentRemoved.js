@@ -1,4 +1,4 @@
-import { renderBaseEmail } from './baseTemplate.js';
+import { renderBaseEmail, escapeEmailHtml, sanitizeEmailUrl } from './baseTemplate.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
 
 /**
@@ -12,7 +12,9 @@ export function renderContentRemovedEmail({
   reason,
   appealUrl = getPlatformUrl('help-support')
 }) {
-  const recipientName = name || (to ? to.split('@')[0] : 'Member');
+  const recipientName = escapeEmailHtml(name || (to ? to.split('@')[0] : 'Member'));
+  const safeContentType = escapeEmailHtml(contentType || 'photo');
+  const safeAppealUrl = escapeEmailHtml(sanitizeEmailUrl(appealUrl, getPlatformUrl('help-support')));
 
   const contentHtml = `
     <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 400; line-height: 28px; color: #202124; text-align: center; font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;">
@@ -20,7 +22,7 @@ export function renderContentRemovedEmail({
     </h1>
 
     <p style="margin: 0 0 18px 0; font-size: 15px; line-height: 24px; color: #3c4043; text-align: center; font-family: Roboto, -apple-system, BlinkMacSystemFont, sans-serif;">
-      Hi ${recipientName}, we recently removed a ${contentType} posted from your account because it violates our Community Standards on sexually explicit content.
+      Hi ${recipientName}, we recently removed a ${safeContentType} posted from your account because it violates our Community Standards on sexually explicit content.
     </p>
 
     <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 22px; color: #5f6368; text-align: center; font-family: Roboto, -apple-system, BlinkMacSystemFont, sans-serif;">
@@ -46,7 +48,7 @@ export function renderContentRemovedEmail({
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
       <tr>
         <td align="center">
-          <a href="${appealUrl}" target="_blank" style="display: inline-block; background-color: #137333; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 500; line-height: 20px; padding: 12px 32px; border-radius: 20px; font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;">
+          <a href="${safeAppealUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #137333; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 500; line-height: 20px; padding: 12px 32px; border-radius: 20px; font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;">
             Review Community Standards
           </a>
         </td>
