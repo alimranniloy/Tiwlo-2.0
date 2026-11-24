@@ -2158,7 +2158,7 @@ export default function DropletDetailView({
                       id="vps-dns-type"
                       value={dnsRecordType}
                       onChange={(e) => setDnsRecordType(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                      className="h-9 box-border w-full rounded-lg border border-neutral-200/80 bg-white px-2.5 py-0 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
                     >
                       <option value="A+AAAA">Nameserver / Edge Proxy</option>
                       <option value="AAAA">AAAA (IPv6 Edge)</option>
@@ -2177,11 +2177,11 @@ export default function DropletDetailView({
                       value={dnsTargetPort}
                       onChange={(e) => setDnsTargetPort(e.target.value)}
                       placeholder="80"
-                      className="h-9 w-full rounded-lg border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                      className="h-9 box-border w-full rounded-lg border border-neutral-200/80 bg-white px-2.5 py-0 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
                     />
                   </div>
                   <div className="flex items-end sm:col-span-2">
-                    <Button type="submit" className="w-full" disabled={dnsSubmitting || !dnsHostname.trim()}>
+                    <Button type="submit" className="h-9 w-full" disabled={dnsSubmitting || !dnsHostname.trim()}>
                       <Plus className="size-3.5" />
                       {dnsSubmitting ? 'Saving…' : 'Connect'}
                     </Button>

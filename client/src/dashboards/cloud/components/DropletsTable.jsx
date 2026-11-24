@@ -421,12 +421,12 @@ export default function DropletsTable({
         <table className="w-full text-left border-collapse min-w-[640px]">
           <thead>
             <tr className="border-b border-neutral-100 dark:border-gray-800 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-400">
-              <th className="py-3 px-3 sm:px-6 font-semibold">Name</th>
-              <th className="py-3 px-3 sm:px-6 font-semibold">IP &amp; SSH Login</th>
-              <th className="py-3 px-3 sm:px-6 font-semibold">Region</th>
-              <th className="py-3 px-3 sm:px-6 font-semibold">Status</th>
-              <th className="py-3 px-3 sm:px-6 font-semibold">Created</th>
-              <th className="py-3 px-3 sm:px-6 font-semibold text-right">Actions</th>
+              <th className="py-3 px-3 sm:px-4 font-semibold">Name</th>
+              <th className="py-3 px-3 sm:px-4 font-semibold">IP &amp; SSH Login</th>
+              <th className="py-3 px-3 sm:px-4 font-semibold">Region</th>
+              <th className="py-3 px-3 sm:px-4 font-semibold">Status</th>
+              <th className="hidden 2xl:table-cell py-3 px-3 sm:px-4 font-semibold">Created</th>
+              <th className="py-3 px-3 sm:px-4 font-semibold text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100 dark:divide-gray-800/80 text-xs font-medium">
@@ -472,7 +472,7 @@ export default function DropletsTable({
                     className="hover:bg-neutral-50/80 dark:hover:bg-gray-800/40 transition group cursor-pointer"
                   >
                     {/* Name + Specs */}
-                    <td className="py-3 sm:py-4 px-3 sm:px-6">
+                    <td className="py-3 sm:py-4 px-3 sm:px-4">
                       <div className="flex items-center gap-2.5 sm:gap-3">
                         <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-neutral-50 dark:bg-neutral-900/20 text-neutral-600 dark:text-neutral-400 flex items-center justify-center shrink-0">
                           <Droplet className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-neutral-600 dark:fill-neutral-400 stroke-none" />
@@ -521,7 +521,7 @@ export default function DropletsTable({
                                   e.stopPropagation();
                                   navigateToDroplet(item);
                                 }}
-                                className="font-bold text-left text-neutral-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-[#1ED760] transition cursor-pointer"
+                                className="font-bold text-left whitespace-nowrap text-neutral-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-[#1ED760] transition cursor-pointer"
                               >
                                 {item.name}
                               </button>
@@ -535,12 +535,12 @@ export default function DropletsTable({
                     </td>
 
                     {/* IP Address & SSH Command */}
-                    <td className="py-3 sm:py-4 px-3 sm:px-6">
+                    <td className="py-3 sm:py-4 px-3 sm:px-4">
                       <div className="font-mono text-[11px] text-neutral-700 dark:text-neutral-200 font-medium">
                         {item.ip || item.ipv4 || '—'}
                       </div>
                       {item.ipv6 && (
-                        <div className="font-mono text-[10px] text-neutral-400 dark:text-neutral-400 truncate max-w-[210px]">
+                        <div className="font-mono text-[10px] text-neutral-400 dark:text-neutral-400 truncate max-w-[175px]">
                           {item.ipv6}
                         </div>
                       )}
@@ -550,7 +550,7 @@ export default function DropletsTable({
                           className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800/90 px-2 py-1 border border-neutral-200/80 dark:border-neutral-700/70"
                         >
                           <Terminal className="w-3 h-3 text-[#0f7a37] dark:text-[#1ed760] shrink-0" aria-hidden="true" />
-                          <code className="font-mono text-[10px] text-neutral-800 dark:text-neutral-200 select-all truncate max-w-[200px]">
+                          <code className="font-mono text-[10px] text-neutral-800 dark:text-neutral-200 select-all truncate max-w-[165px]">
                             {sshCommand}
                           </code>
                           <button
@@ -577,7 +577,7 @@ export default function DropletsTable({
                     </td>
 
                     {/* Region */}
-                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-neutral-700 dark:text-neutral-200">
+                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-neutral-700 dark:text-neutral-200 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {flagUrl ? (
                           <img
@@ -593,7 +593,7 @@ export default function DropletsTable({
                     </td>
 
                     {/* Status */}
-                    <td className="py-3 sm:py-4 px-3 sm:px-6">
+                    <td className="py-3 sm:py-4 px-3 sm:px-4 whitespace-nowrap">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold">
                         <span
                           className={`w-2 h-2 rounded-full ${
@@ -619,14 +619,14 @@ export default function DropletsTable({
                     </td>
 
                     {/* Created */}
-                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-[10px] sm:text-[11px] text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                    <td className="hidden 2xl:table-cell py-3 sm:py-4 px-3 sm:px-4 text-[10px] sm:text-[11px] text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
                       {item.created || (item.createdAt ? new Date(item.createdAt).toLocaleString() : '—')}
                     </td>
 
                     {/* Actions */}
                     <td
                       onClick={(e) => e.stopPropagation()}
-                      className="py-3 sm:py-4 px-3 sm:px-6 text-right relative whitespace-nowrap"
+                      className="py-3 sm:py-4 px-3 sm:px-4 text-right relative whitespace-nowrap"
                     >
                       {isConfirmingDelete ? (
                         <div className="inline-flex items-center gap-1.5">
