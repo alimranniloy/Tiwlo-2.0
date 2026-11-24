@@ -74,8 +74,14 @@ if ! docker network inspect "${VPS_NETWORK}" >/dev/null 2>&1; then
     "${VPS_NETWORK}"
 fi
 
-# Scoped DOCKER-USER isolation ONLY on customer bridge br-tiwlovps (never disrupts host/platform containers)
+# Scoped INPUT & DOCKER-USER firewall isolation ONLY on customer bridge br-tiwlovps (never disrupts host/platform containers)
 if command -v iptables >/dev/null 2>&1; then
+  # Block customer containers on br-tiwlovps from reaching ANY host-bound socket (9443, 22, 5432, etc.)
+  iptables -C INPUT -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT >/dev/null 2>&1 \
+    || iptables -I INPUT 1 -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || true
+  iptables -C INPUT -i "${VPS_BRIDGE}" -j DROP >/dev/null 2>&1 \
+    || iptables -I INPUT 2 -i "${VPS_BRIDGE}" -j DROP || true
+
   iptables -C DOCKER-USER -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT >/dev/null 2>&1 \
     || iptables -I DOCKER-USER 1 -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || true
 
