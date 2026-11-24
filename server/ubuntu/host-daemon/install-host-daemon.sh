@@ -74,27 +74,36 @@ if ! docker network inspect "${VPS_NETWORK}" >/dev/null 2>&1; then
     "${VPS_NETWORK}"
 fi
 
-# Scoped INPUT & DOCKER-USER firewall isolation ONLY on customer bridge br-tiwlovps (never disrupts host/platform containers)
-if command -v iptables >/dev/null 2>&1; then
-  # Block customer containers on br-tiwlovps from reaching ANY host-bound socket (9443, 22, 5432, etc.)
-  iptables -C INPUT -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT >/dev/null 2>&1 \
-    || iptables -I INPUT 1 -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || true
-  iptables -C INPUT -i "${VPS_BRIDGE}" -j DROP >/dev/null 2>&1 \
-    || iptables -I INPUT 2 -i "${VPS_BRIDGE}" -j DROP || true
-
-  iptables -C DOCKER-USER -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT >/dev/null 2>&1 \
-    || iptables -I DOCKER-USER 1 -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || true
-
-  for cidr in 169.254.0.0/16 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16; do
-    iptables -C DOCKER-USER -i "${VPS_BRIDGE}" -d "${cidr}" -j DROP >/dev/null 2>&1 \
-      || iptables -I DOCKER-USER 2 -i "${VPS_BRIDGE}" -d "${cidr}" -j DROP || true
-  done
-
-  for port in 25 465 587 3333 4444 5555 7777 9999 14433 14444; do
-    iptables -C DOCKER-USER -i "${VPS_BRIDGE}" -p tcp --dport "${port}" -j DROP >/dev/null 2>&1 \
-      || iptables -I DOCKER-USER 2 -i "${VPS_BRIDGE}" -p tcp --dport "${port}" -j DROP || true
-  done
+# Scoped INPUT & DOCKER-USER firewall isolation ONLY on customer bridge br-tiwlovps (persisted across reboots via systemd ExecStartPre)
+cat > "${LIB_DIR}/apply-firewall.sh" <<'FWEOF'
+#!/usr/bin/env bash
+set -e
+VPS_BRIDGE="${TIWLO_VPS_BRIDGE:-br-tiwlovps}"
+if ! command -v iptables >/dev/null 2>&1; then
+  exit 0
 fi
+
+# Block customer containers on br-tiwlovps from reaching ANY host-bound socket (9443, 22, 5432, etc.)
+iptables -C INPUT -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT >/dev/null 2>&1 \
+  || iptables -I INPUT 1 -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || true
+iptables -C INPUT -i "${VPS_BRIDGE}" -j DROP >/dev/null 2>&1 \
+  || iptables -I INPUT 2 -i "${VPS_BRIDGE}" -j DROP || true
+
+iptables -C DOCKER-USER -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT >/dev/null 2>&1 \
+  || iptables -I DOCKER-USER 1 -i "${VPS_BRIDGE}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || true
+
+for cidr in 169.254.0.0/16 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16; do
+  iptables -C DOCKER-USER -i "${VPS_BRIDGE}" -d "${cidr}" -j DROP >/dev/null 2>&1 \
+    || iptables -I DOCKER-USER 2 -i "${VPS_BRIDGE}" -d "${cidr}" -j DROP || true
+done
+
+for port in 25 465 587 3333 4444 5555 7777 9999 14433 14444; do
+  iptables -C DOCKER-USER -i "${VPS_BRIDGE}" -p tcp --dport "${port}" -j DROP >/dev/null 2>&1 \
+    || iptables -I DOCKER-USER 2 -i "${VPS_BRIDGE}" -p tcp --dport "${port}" -j DROP || true
+done
+FWEOF
+chmod 0700 "${LIB_DIR}/apply-firewall.sh"
+"${LIB_DIR}/apply-firewall.sh"
 
 # Build shared Ubuntu 24.04 VPS runtime image when missing or changed
 RUNTIME_DIR="${REPO_ROOT}/server/ubuntu/vps-runtime"
@@ -352,6 +361,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=${ENV_FILE}
+ExecStartPre=${LIB_DIR}/apply-firewall.sh
 ExecStart=/usr/bin/node ${LIB_DIR}/tiwlo-vps-daemon.mjs
 Restart=always
 RestartSec=2
