@@ -176,6 +176,7 @@ services:
       PORT: 5000
       TIWLO_INBOUND_TOKEN: ${TIWLO_INBOUND_TOKEN:?TIWLO_INBOUND_TOKEN is required}
       TIWLO_INBOUND_TRUSTED_IP: 172.30.240.1
+      TIWLO_HOST_AGENT_URL: ${TIWLO_HOST_AGENT_URL:-http://172.30.240.1:9443}
       SMTP_PROVIDER: local_postfix
       SMTP_HOST: host.docker.internal
       SMTP_PORT: 25

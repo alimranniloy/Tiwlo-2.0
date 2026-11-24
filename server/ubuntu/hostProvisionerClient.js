@@ -55,7 +55,12 @@ export function buildSshGatewayUsername({ hostname = '', dropletId = '', existin
 
 export function resolveHostProvisionerConfig() {
   const explicitUrl = String(process.env.TIWLO_HOST_AGENT_URL || '').trim();
-  const baseUrl = (explicitUrl || 'http://host.docker.internal:9443').replace(/\/+$/, '');
+  const trustedGatewayIp = String(process.env.TIWLO_INBOUND_TRUSTED_IP || '').trim();
+  const fallbackUrl =
+    trustedGatewayIp && net.isIPv4(trustedGatewayIp)
+      ? `http://${trustedGatewayIp}:9443`
+      : 'http://host.docker.internal:9443';
+  const baseUrl = (explicitUrl || fallbackUrl).replace(/\/+$/, '');
   const secret = String(
     process.env.TIWLO_INTERNAL_IDENTITY_SECRET || process.env.TIWLO_AGENT_TOKEN || ''
   ).trim();
