@@ -56,7 +56,7 @@ async function fetchWithChallengeRetry(resource, options) {
 
 async function operations(origin) {
   if (!manifests.has(origin)) {
-    manifests.set(origin, nativeFetch(`${origin}/api/graphql`, {
+    manifests.set(origin, fetchWithChallengeRetry(`${origin}/api/graphql`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: '{ applicationOperations { field method path } }' })
     }).then(async response => {

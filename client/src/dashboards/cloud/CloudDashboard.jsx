@@ -463,7 +463,7 @@ export default function CloudDashboard({
       ]);
 
       const gqlDroplets = Array.isArray(cloudData?.droplets) ? cloudData.droplets.filter(Boolean) : [];
-      const finalDroplets = Array.isArray(restDroplets) ? restDroplets : gqlDroplets;
+      const finalDroplets = (Array.isArray(restDroplets) ? restDroplets : gqlDroplets).filter(Boolean);
       setDroplets(finalDroplets);
 
       if (cloudData) {
@@ -477,8 +477,8 @@ export default function CloudDashboard({
             ? cloudData.metrics.totalStorage
             : `${computedStorage} GB`,
         });
-        setActivities(cloudData.activities || []);
-        setPopularImages(cloudData.popularImages || []);
+        setActivities(Array.isArray(cloudData.activities) ? cloudData.activities.filter(Boolean) : []);
+        setPopularImages(Array.isArray(cloudData.popularImages) ? cloudData.popularImages.filter(Boolean) : []);
       } else if (finalDroplets.length > 0) {
         const computedVcpus = finalDroplets.reduce((sum, d) => sum + Number(d?.vcpus || 0), 0);
         const computedStorage = finalDroplets.reduce((sum, d) => sum + (parseFloat(d?.storage) || 0), 0);

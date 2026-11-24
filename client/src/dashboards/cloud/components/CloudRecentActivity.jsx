@@ -28,28 +28,28 @@ export default function CloudRecentActivity({ activities = [] }) {
       </div>
 
       <div className="space-y-4">
-        {activities.length === 0 ? (
+        {activities.filter(Boolean).length === 0 ? (
           <p className="py-4 text-center text-xs text-neutral-500 dark:text-neutral-400">
             No recent activity.
           </p>
-        ) : activities.slice(0, 5).map((item) => (
-          <div key={item.id} className="flex items-center justify-between text-xs">
+        ) : activities.filter(Boolean).slice(0, 5).map((item, idx) => (
+          <div key={item.id || `${item.type || 'cloud'}-${idx}`} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-full bg-neutral-50 dark:bg-neutral-900/30 flex items-center justify-center shrink-0">
                 {getActivityIcon(item.type)}
               </div>
               <div>
                 <p className="font-bold text-neutral-800 dark:text-neutral-200">
-                  {item.action}
+                  {item.action || 'Workspace activity'}
                 </p>
                 <p className="text-[11px] text-neutral-400 font-medium">
-                  {item.target}
+                  {item.target || ''}
                 </p>
               </div>
             </div>
 
             <span className="text-[11px] text-neutral-400 font-medium shrink-0 ml-2">
-              {item.time}
+              {item.time || item.createdAt || ''}
             </span>
           </div>
         ))}

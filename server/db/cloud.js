@@ -104,7 +104,8 @@ function mapDroplet(row, { node = null } = {}) {
     suspendedAt: row.suspended_at || null,
     purgeAt: row.purge_at || null,
     lastInvoiceId: row.last_invoice_id || null,
-    createdAt: row.created_at
+    created: row.created || (row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || row.createdAt || new Date().toISOString())),
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || row.createdAt || new Date().toISOString())
   };
 }
 
@@ -757,7 +758,21 @@ export const CloudDB = {
   async getCloudActivities(userId) {
     if (!userId) return [];
     const { rows } = await queryPg('SELECT * FROM cloud_activities WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10', [userId]);
-    return rows.map(row => ({ ...row, userId: row.user_id, createdAt: row.created_at }));
+    return rows.map((row) => {
+      const rawTime = row.created_at || row.createdAt || row.time;
+      const isoTime = rawTime instanceof Date
+        ? rawTime.toISOString()
+        : String(rawTime || new Date().toISOString());
+      return {
+        ...row,
+        action: row.action || 'Workspace activity',
+        target: row.target || '',
+        type: row.type || 'cloud',
+        time: row.time || isoTime,
+        userId: row.user_id,
+        createdAt: isoTime
+      };
+    });
   },
 
   async getPopularImages() {

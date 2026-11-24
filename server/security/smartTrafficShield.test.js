@@ -599,3 +599,45 @@ test('read-only GraphQL queries and visitor telemetry heartbeats do not exhaust 
     assert.equal((await mutLimited.json()).code, 'SHIELD_CHALLENGE_REQUIRED');
   });
 });
+
+test('authenticated SPA reads do not exhaust shared-IP unauthenticated readBucket for sibling origins', async () => {
+  resetTrafficShieldForTests();
+
+  const app = express();
+  app.use(express.json());
+  app.use(createSmartTrafficShieldMiddleware({
+    requireVerifiedAuth: true,
+    readFloodThreshold: 3,
+    samePathFloodThreshold: 3,
+    readBucketCapacity: 3,
+    readBucketRefillPerSec: 0.01,
+    cooldownSeconds: 30
+  }));
+  app.get('/api/auth/social/providers', (_req, res) => res.json({ google: true }));
+  app.post('/api/graphql', (_req, res) => res.json({ data: { applicationOperations: [] } }));
+  app.get('/api/cloud/droplets', (_req, res) => res.json([]));
+
+  await withServer(app, async (baseUrl) => {
+    for (let i = 0; i < 10; i += 1) {
+      const authGet = await fetch(`${baseUrl}/api/cloud/droplets`, {
+        headers: {
+          authorization: 'Bearer valid_authenticated_session_token',
+          'user-agent': 'Mozilla/5.0 Browser'
+        }
+      });
+      assert.equal(authGet.status, 200);
+    }
+
+    const socialProviders = await fetch(`${baseUrl}/api/auth/social/providers`, {
+      headers: { 'user-agent': 'Mozilla/5.0 Browser' }
+    });
+    assert.equal(socialProviders.status, 200);
+
+    const gqlOps = await fetch(`${baseUrl}/api/graphql`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 Browser' },
+      body: JSON.stringify({ query: '{ applicationOperations { field method path } }' })
+    });
+    assert.equal(gqlOps.status, 200);
+  });
+});

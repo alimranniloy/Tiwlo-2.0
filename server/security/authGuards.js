@@ -42,6 +42,8 @@ export function requiresAddressVerificationForRequest({ path = '', method = 'GET
   if (
     normalizedPath === '/api/health' ||
     normalizedPath.startsWith('/api/public/') ||
+    normalizedPath === '/api/telemetry' ||
+    normalizedPath.startsWith('/api/telemetry/') ||
     normalizedPath === '/api/auth' ||
     normalizedPath.startsWith('/api/auth/') ||
     normalizedPath === '/api/verification' ||

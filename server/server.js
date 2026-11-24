@@ -302,6 +302,8 @@ app.use(async (req, res, next) => {
         const isAuthRequest = req.path === '/api/auth' || req.path.startsWith('/api/auth/');
         const isAddressVerificationRequest = req.path === '/api/address-verification' ||
           req.path.startsWith('/api/address-verification/');
+        const isPublicTelemetryRequest = req.path === '/api/telemetry' ||
+          req.path.startsWith('/api/telemetry/');
         const isPickProfileBootstrap = req.method === 'GET' && req.path === '/api/pick/me';
         const isPickAccountStatusPath = req.path === '/api/pick/account-status' ||
           req.path === '/api/pick/account-appeals';
@@ -316,6 +318,7 @@ app.use(async (req, res, next) => {
           sessionData.user.identityVerified !== true &&
           !isIdentityVerificationRequest &&
           !isAddressVerificationRequest &&
+          !isPublicTelemetryRequest &&
           !isPickProfileBootstrap &&
           !isPickAccountStatusPath &&
           !isAdminApiRequest &&

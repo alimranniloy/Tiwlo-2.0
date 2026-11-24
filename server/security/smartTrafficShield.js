@@ -7,10 +7,10 @@ const DEFAULT_CACHE_TTL_MS = 20_000;
 const DEFAULT_MAX_CACHE_BODY_BYTES = 512 * 1024;
 const DEFAULT_MAX_TRACKED_IPS = 10_000;
 const DEFAULT_WINDOW_MS = 10_000;
-const DEFAULT_READ_FLOOD_THRESHOLD = 20;
-const DEFAULT_SAME_PATH_FLOOD_THRESHOLD = 12;
-const DEFAULT_READ_BUCKET_CAPACITY = 24;
-const DEFAULT_READ_BUCKET_REFILL_PER_SEC = 3;
+const DEFAULT_READ_FLOOD_THRESHOLD = 45;
+const DEFAULT_SAME_PATH_FLOOD_THRESHOLD = 30;
+const DEFAULT_READ_BUCKET_CAPACITY = 50;
+const DEFAULT_READ_BUCKET_REFILL_PER_SEC = 5;
 const DEFAULT_UNAUTH_WRITE_BUCKET_CAPACITY = 15;
 const DEFAULT_UNAUTH_WRITE_BUCKET_REFILL_PER_SEC = 1;
 const DEFAULT_UNAUTH_COOLDOWN_SECONDS = 30;
@@ -1245,7 +1245,7 @@ export function createSmartTrafficShieldMiddleware(options = {}) {
     }
 
     // 4. Public GET / HEAD read traffic: bounded sliding window velocity + behavioral AI-recon detection + Shadow Cache
-    if (classification.intent === 'public_read') {
+    if (classification.intent === 'public_read' && !classification.isAuthenticated) {
       pruneSlidingWindow(ipState.recentReads, now - config.windowMs);
       if (ipState.recentReads.length >= MAX_RECENT_READS_PER_IP) {
         ipState.recentReads.shift();

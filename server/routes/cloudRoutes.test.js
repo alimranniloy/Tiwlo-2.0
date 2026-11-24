@@ -4,6 +4,8 @@ import express from 'express';
 import { CloudDB } from '../db/cloud.js';
 import { BillingDB } from '../db/billing.js';
 import cloudRoutes from './cloudRoutes.js';
+import { createGraphQLMiddleware } from '../graphql/index.js';
+import { requiresAddressVerificationForRequest } from '../security/authGuards.js';
 
 async function createClient(t) {
   const app = express();
@@ -530,4 +532,97 @@ test('PATCH /api/cloud/droplets/:id/status rejects missing or invalid status and
     body: JSON.stringify({ status: 'active' })
   });
   assert.equal(selfUnsuspendRes.status, 402);
+});
+
+test('cloudDashboard GraphQL populates Droplet.created and CloudActivity.time without null bubbling', async t => {
+  const createdAt = new Date('2026-11-24T09:40:19.397Z');
+  const { MasterDB } = await import('../db/multiTenant.js');
+  const pgMod = await import('../db/postgres.js');
+  const pool = pgMod.getPgPool();
+
+  // Exercise CloudDB.getDroplets / getCloudActivities mapping directly with Date rows
+  t.mock.method(MasterDB, 'getUserStores', async () => []);
+  t.mock.method(pool, 'query', async (sql) => {
+    const q = String(sql || '');
+    if (q.includes('FROM cloud_droplets')) {
+      return {
+        rows: [{
+          id: 'drp_test_1',
+          user_id: 'usr_owner',
+          name: 'node-01',
+          specs: '1 vCPU · 1 GB · 25 GB NVMe',
+          vcpus: 1,
+          memory: '1 GB',
+          storage: '25 GB NVMe',
+          ip: '2401:f40::1',
+          region: 'Dhaka (DHK1)',
+          region_code: 'DHK1',
+          status: 'active',
+          image: 'Ubuntu 24.04 LTS',
+          created_at: createdAt
+        }],
+        rowCount: 1
+      };
+    }
+    if (q.includes('FROM cloud_activities')) {
+      return {
+        rows: [{
+          id: 'act_test_1',
+          user_id: 'usr_owner',
+          action: 'Provisioned Ubuntu 24.04 LTS (DHK1)',
+          target: 'node-01',
+          type: 'droplet',
+          created_at: createdAt
+        }],
+        rowCount: 1
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.activeUser = { id: 'usr_owner', email: 'owner@example.com' };
+    next();
+  });
+  app.use('/graphql', createGraphQLMiddleware());
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+
+  const res = await fetch(`http://127.0.0.1:${server.address().port}/graphql`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      query: `query GetCloudDashboard {
+        cloudDashboard {
+          metrics { totalDroplets totalVcpus totalStorage totalBandwidth }
+          droplets { id name created createdAt status }
+          activities { id action target type time createdAt }
+          popularImages { id name os available }
+        }
+      }`
+    })
+  });
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.errors, undefined);
+  assert.equal(json.data.cloudDashboard.droplets.length, 1);
+  assert.equal(json.data.cloudDashboard.droplets[0].created, createdAt.toISOString());
+  assert.equal(json.data.cloudDashboard.activities.length, 1);
+  assert.equal(json.data.cloudDashboard.activities[0].type, 'droplet');
+  assert.equal(json.data.cloudDashboard.activities[0].time, createdAt.toISOString());
+});
+
+test('telemetry heartbeat endpoints remain reachable before address verification completes', () => {
+  const unverifiedUser = { id: 'usr_1', addressVerified: false };
+  assert.equal(
+    requiresAddressVerificationForRequest({ path: '/api/telemetry/visitor/heartbeat', method: 'POST', activeUser: unverifiedUser }),
+    false
+  );
+  assert.equal(
+    requiresAddressVerificationForRequest({ path: '/api/cloud/droplets', method: 'GET', activeUser: unverifiedUser }),
+    true
+  );
 });
