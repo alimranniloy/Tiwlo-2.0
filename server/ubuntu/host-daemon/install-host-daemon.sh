@@ -94,7 +94,7 @@ fi
 RUNTIME_DIR="${REPO_ROOT}/server/ubuntu/vps-runtime"
 HASH_FILE="/var/lib/tiwlo-node/vps-image.sha256"
 if [[ -f "${RUNTIME_DIR}/Dockerfile" ]]; then
-  NEW_HASH="$(sha256sum "${RUNTIME_DIR}/Dockerfile" | awk '{print $1}')"
+  NEW_HASH="$(cat "${RUNTIME_DIR}/Dockerfile" "${RUNTIME_DIR}/tiwlo-vps-init.sh" 2>/dev/null | sha256sum | awk '{print $1}')"
   OLD_HASH="$(cat "${HASH_FILE}" 2>/dev/null || true)"
   if [[ "${1:-}" == "--force-image" || "${NEW_HASH}" != "${OLD_HASH}" ]] || ! docker image inspect "${VPS_IMAGE}" >/dev/null 2>&1; then
     echo "Building shared customer VPS image: ${VPS_IMAGE}..."

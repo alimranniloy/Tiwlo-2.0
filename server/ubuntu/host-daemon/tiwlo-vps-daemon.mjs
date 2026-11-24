@@ -240,6 +240,15 @@ async function removeHostGatewayUser(gatewayUser) {
   await execCmd('userdel', [cleanGwUser]).catch(() => {});
 }
 
+async function inspectImageId(imageName) {
+  try {
+    const { stdout } = await execCmd('docker', ['image', 'inspect', '--format', '{{.Id}}', imageName]);
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 async function inspectContainer(containerName) {
   try {
     const { stdout } = await execCmd('docker', ['inspect', containerName]);
@@ -314,7 +323,10 @@ async function provisionDropletContainer(payload) {
 
   const containerName = entry.containerName;
   let inspected = await inspectContainer(containerName);
-  const imageMismatch = inspected && inspected.Config?.Image !== VPS_IMAGE;
+  const currentImageId = await inspectImageId(VPS_IMAGE);
+  const imageMismatch =
+    inspected &&
+    (inspected.Config?.Image !== VPS_IMAGE || (currentImageId && inspected.Image !== currentImageId));
 
   if (!inspected || imageMismatch) {
     if (inspected) {
