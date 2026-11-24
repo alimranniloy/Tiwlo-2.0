@@ -319,8 +319,6 @@ Match User twvps_*
     PubkeyAuthentication yes
     PermitEmptyPasswords no
     PermitTTY yes
-    PrintMotd no
-    PrintLastLog no
     AllowTcpForwarding no
     AllowAgentForwarding no
     AllowStreamLocalForwarding no
